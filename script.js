@@ -145,8 +145,6 @@ function exportarWhatsApp() {
         textoMensagem += `✅ *${dataMarco.toLocaleDateString('pt-BR')}*\n*${marco.titulo}*\n${marco.desc}\n\n`;
     });
 
-    textoMensagem += `_Gerado por Volpati Fisio Pro_`;
-
     navigator.clipboard.writeText(textoMensagem).then(() => {
         alert("Checklist de " + p.nome + " copiado para o WhatsApp!");
     });
