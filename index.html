@@ -9,6 +9,10 @@
     <style>
         body { font-family: 'Inter', sans-serif; }
         
+        #pacienteNome {
+            text-transform: capitalize;
+        }
+
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
@@ -38,7 +42,7 @@
                     <div class="space-y-4">
                         <div>
                             <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Nome do Paciente</label>
-                            <input type="text" id="pacienteNome" placeholder="Ex: Alicia Maria" 
+                            <input type="text" id="pacienteNome" placeholder="Ex: Alicia Maria" autocomplete="off"
                                 class="w-full p-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all">
                         </div>
                         <div>
@@ -80,8 +84,7 @@
 
                 <div id="cronogramaContainer" class="hidden animate-in fade-in duration-500">
                     <div class="bg-white p-6 rounded-2xl shadow-sm border border-blue-100 mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
-                        <div id="nomeDisplay">
-                            </div>
+                        <div id="nomeDisplay"></div>
                         <div class="flex gap-3">
                             <button onclick="exportarWhatsApp()" 
                                 class="bg-green-500 hover:bg-green-600 text-white px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 transition-all active:scale-95 shadow-md shadow-green-100">
@@ -90,8 +93,7 @@
                         </div>
                     </div>
 
-                    <div id="timeline" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        </div>
+                    <div id="timeline" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
                 </div>
             </section>
         </div>
