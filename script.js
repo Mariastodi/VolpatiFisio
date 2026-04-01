@@ -26,9 +26,13 @@ function salvarPaciente() {
         .map(palavra => palavra.charAt(0).toUpperCase() + palavra.slice(1))
         .join(' ');
 
+    let procFormatado = procInput.value.toLowerCase().split(' ')
+        .map(palavra => palavra.charAt(0).toUpperCase() + palavra.slice(1))
+        .join(' ');
+
     const novoPaciente = { 
         nome: nomeFormatado, 
-        procedimento: procInput.value || "Procedimento não informado",
+        procedimento: procFormatado || "Procedimento Não Informado",
         data: dataInput.value 
     };
 
@@ -79,11 +83,11 @@ function renderizarLista() {
                             ${badge60}
                         </div>
                         <p class="text-[11px] text-blue-500 font-medium leading-tight">${p.procedimento}</p>
-                        <p class="text-[10px] text-slate-400 mt-1">Cirurgia: ${dataExibicao} (${diffDias} dias decorridos)</p>
+                        <p class="text-[10px] text-slate-400 mt-1">Cirurgia: ${dataExibicao} (${diffDias} dias atrás)</p>
                     </div>
                     <div class="flex gap-2 ml-2">
-                        <button onclick="prepararEdicao(${index})" class="text-blue-500 hover:text-blue-700">✎</button>
-                        <button onclick="excluirPaciente(${index})" class="text-red-400 hover:text-red-600">✕</button>
+                        <button onclick="prepararEdicao(${index})" class="text-blue-500 hover:text-blue-700" title="Editar">✎</button>
+                        <button onclick="excluirPaciente(${index})" class="text-red-400 hover:text-red-600" title="Excluir">✕</button>
                     </div>
                 </div>
             </div>
@@ -114,18 +118,28 @@ function visualizarCronograma(index) {
         const gLink = `https://www.google.com/calendar/render?action=TEMPLATE&text=Fisio:+${p.nome}+(${marco.titulo})&dates=${dataISO}/${dataISO}&details=${marco.desc}&sf=true&output=xml`;
 
         timeline.innerHTML += `
-            <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex justify-between items-center">
+            <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex justify-between items-center transition-all hover:shadow-md">
                 <div>
                     <span class="text-xs font-bold text-blue-500 uppercase">${dataMarco.toLocaleDateString('pt-BR')}</span>
                     <h3 class="font-bold text-slate-700">${marco.titulo}</h3>
                     <p class="text-sm text-slate-500">${marco.desc}</p>
                 </div>
-                <a href="${gLink}" target="_blank" class="bg-slate-100 hover:bg-blue-100 p-2 rounded-full transition-colors">📅</a>
+                <a href="${gLink}" target="_blank" class="bg-slate-100 hover:bg-blue-100 p-2 rounded-full transition-colors" title="Google Agenda">📅</a>
             </div>
         `;
     });
 
     document.getElementById('cronogramaContainer').dataset.currentIndex = index;
+}
+
+function filtrarPacientes() {
+    const termo = document.getElementById('buscaPaciente').value.toLowerCase();
+    const itens = document.getElementsByClassName('item-paciente');
+
+    for (let i = 0; i < itens.length; i++) {
+        let texto = itens[i].innerText.toLowerCase();
+        itens[i].style.display = texto.includes(termo) ? "" : "none";
+    }
 }
 
 function exportarWhatsApp() {
@@ -153,16 +167,6 @@ function exportarWhatsApp() {
     });
 }
 
-function filtrarPacientes() {
-    const termo = document.getElementById('buscaPaciente').value.toLowerCase();
-    const itens = document.getElementsByClassName('item-paciente');
-
-    for (let i = 0; i < itens.length; i++) {
-        let texto = itens[i].innerText.toLowerCase();
-        itens[i].style.display = texto.includes(termo) ? "" : "none";
-    }
-}
-
 function prepararEdicao(index) {
     const p = pacientes[index];
     document.getElementById('pacienteNome').value = p.nome;
@@ -175,7 +179,7 @@ function prepararEdicao(index) {
 }
 
 function excluirPaciente(index) {
-    if (confirm("Excluir este paciente permanentemente?")) {
+    if (confirm("Deseja realmente excluir este paciente?")) {
         pacientes.splice(index, 1);
         localStorage.setItem('fisio_pacientes', JSON.stringify(pacientes));
         renderizarLista();
