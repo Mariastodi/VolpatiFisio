@@ -13,11 +13,12 @@ document.addEventListener('DOMContentLoaded', renderizarLista);
 
 function salvarPaciente() {
     const nomeInput = document.getElementById('pacienteNome');
+    const procInput = document.getElementById('pacienteProcedimento');
     const dataInput = document.getElementById('dataCirurgia');
     const editIndexInput = document.getElementById('editIndex');
 
     if (!nomeInput.value || !dataInput.value) {
-        alert("Preencha o nome e a data da cirurgia!");
+        alert("Por favor, preencha o nome e a data da cirurgia.");
         return;
     }
 
@@ -27,6 +28,7 @@ function salvarPaciente() {
 
     const novoPaciente = { 
         nome: nomeFormatado, 
+        procedimento: procInput.value || "Procedimento não informado",
         data: dataInput.value 
     };
 
@@ -43,6 +45,7 @@ function salvarPaciente() {
     localStorage.setItem('fisio_pacientes', JSON.stringify(pacientes));
     
     nomeInput.value = '';
+    procInput.value = '';
     dataInput.value = '';
     document.getElementById('btnSalvar').innerText = "Salvar Paciente";
 
@@ -54,39 +57,38 @@ function renderizarLista() {
     if (!lista) return;
     lista.innerHTML = '';
 
-    if (pacientes.length === 0) {
-        lista.innerHTML = '<p class="text-sm text-slate-400 text-center py-4">Nenhum paciente cadastrado.</p>';
-        return;
-    }
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
 
     pacientes.forEach((p, index) => {
+        const dataCirurgia = new Date(p.data + 'T00:00:00');
         const dataExibicao = p.data.split('-').reverse().join('/');
         
+        const diffTempo = hoje - dataCirurgia;
+        const diffDias = Math.floor(diffTempo / (1000 * 60 * 60 * 24));
+
+        const badge60 = diffDias >= 60 ? 
+            `<span class="ml-2 bg-orange-100 text-orange-700 text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse border border-orange-200">⚠️ 60 DIAS</span>` : '';
+
         lista.innerHTML += `
             <div class="item-paciente p-3 bg-slate-50 rounded-xl border border-slate-200 group transition-all hover:border-blue-300 mb-2">
                 <div class="flex justify-between items-start">
                     <div class="cursor-pointer flex-1" onclick="visualizarCronograma(${index})">
-                        <p class="font-bold text-slate-700 group-hover:text-blue-600">${p.nome}</p>
-                        <p class="text-xs text-slate-500">Cirurgia: ${dataExibicao}</p>
+                        <div class="flex items-center">
+                            <p class="font-bold text-slate-700 group-hover:text-blue-600">${p.nome}</p>
+                            ${badge60}
+                        </div>
+                        <p class="text-[11px] text-blue-500 font-medium leading-tight">${p.procedimento}</p>
+                        <p class="text-[10px] text-slate-400 mt-1">Cirurgia: ${dataExibicao} (${diffDias} dias decorridos)</p>
                     </div>
                     <div class="flex gap-2 ml-2">
-                        <button onclick="prepararEdicao(${index})" class="text-blue-500 hover:text-blue-700" title="Editar">✎</button>
-                        <button onclick="excluirPaciente(${index})" class="text-red-400 hover:text-red-600" title="Excluir">✕</button>
+                        <button onclick="prepararEdicao(${index})" class="text-blue-500 hover:text-blue-700">✎</button>
+                        <button onclick="excluirPaciente(${index})" class="text-red-400 hover:text-red-600">✕</button>
                     </div>
                 </div>
             </div>
         `;
     });
-}
-
-function filtrarPacientes() {
-    const termoBusca = document.getElementById('buscaPaciente').value.toLowerCase();
-    const itens = document.getElementsByClassName('item-paciente');
-
-    for (let i = 0; i < itens.length; i++) {
-        let texto = itens[i].innerText.toLowerCase();
-        itens[i].style.display = texto.includes(termoBusca) ? "" : "none";
-    }
 }
 
 function visualizarCronograma(index) {
@@ -95,7 +97,7 @@ function visualizarCronograma(index) {
     document.getElementById('cronogramaContainer').classList.remove('hidden');
     
     document.getElementById('nomeDisplay').innerHTML = `
-        <span class="text-blue-600 block text-sm uppercase tracking-widest font-semibold">Paciente</span>
+        <span class="text-blue-600 block text-xs uppercase tracking-widest font-bold mb-1">${p.procedimento}</span>
         <h2 class="text-2xl font-bold text-blue-900">${p.nome}</h2>
     `;
     
@@ -112,15 +114,13 @@ function visualizarCronograma(index) {
         const gLink = `https://www.google.com/calendar/render?action=TEMPLATE&text=Fisio:+${p.nome}+(${marco.titulo})&dates=${dataISO}/${dataISO}&details=${marco.desc}&sf=true&output=xml`;
 
         timeline.innerHTML += `
-            <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex justify-between items-center transition-hover hover:shadow-md">
+            <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex justify-between items-center">
                 <div>
                     <span class="text-xs font-bold text-blue-500 uppercase">${dataMarco.toLocaleDateString('pt-BR')}</span>
                     <h3 class="font-bold text-slate-700">${marco.titulo}</h3>
                     <p class="text-sm text-slate-500">${marco.desc}</p>
                 </div>
-                <a href="${gLink}" target="_blank" class="bg-slate-100 hover:bg-blue-100 p-2 rounded-full transition-colors" title="Adicionar à Agenda">
-                    📅
-                </a>
+                <a href="${gLink}" target="_blank" class="bg-slate-100 hover:bg-blue-100 p-2 rounded-full transition-colors">📅</a>
             </div>
         `;
     });
@@ -135,24 +135,38 @@ function exportarWhatsApp() {
     const p = pacientes[index];
     const dataBase = new Date(p.data + 'T00:00:00');
     
-    let textoMensagem = `*PLANO DE RECUPERAÇÃO: ${p.nome.toUpperCase()}*\n`;
-    textoMensagem += `Data da Cirurgia: ${dataBase.toLocaleDateString('pt-BR')}\n`;
-    textoMensagem += `------------------------------------------\n\n`;
+    let msg = `*PLANO DE RECUPERAÇÃO: ${p.nome.toUpperCase()}*\n`;
+    msg += `Procedimento: ${p.procedimento}\n`;
+    msg += `Data da Cirurgia: ${dataBase.toLocaleDateString('pt-BR')}\n`;
+    msg += `------------------------------------------\n\n`;
 
     marcosModulares.forEach(marco => {
         const dataMarco = new Date(dataBase);
         dataMarco.setDate(dataBase.getDate() + marco.dias);
-        textoMensagem += `✅ *${dataMarco.toLocaleDateString('pt-BR')}*\n*${marco.titulo}*\n${marco.desc}\n\n`;
+        msg += `✅ *${dataMarco.toLocaleDateString('pt-BR')}*\n*${marco.titulo}*\n${marco.desc}\n\n`;
     });
 
-    navigator.clipboard.writeText(textoMensagem).then(() => {
-        alert("Checklist de " + p.nome + " copiado para o WhatsApp!");
+    msg += `_Gerado por Volpati Fisio Pro_`;
+
+    navigator.clipboard.writeText(msg).then(() => {
+        alert("Copiado para o WhatsApp!");
     });
+}
+
+function filtrarPacientes() {
+    const termo = document.getElementById('buscaPaciente').value.toLowerCase();
+    const itens = document.getElementsByClassName('item-paciente');
+
+    for (let i = 0; i < itens.length; i++) {
+        let texto = itens[i].innerText.toLowerCase();
+        itens[i].style.display = texto.includes(termo) ? "" : "none";
+    }
 }
 
 function prepararEdicao(index) {
     const p = pacientes[index];
     document.getElementById('pacienteNome').value = p.nome;
+    document.getElementById('pacienteProcedimento').value = p.procedimento || "";
     document.getElementById('dataCirurgia').value = p.data;
     document.getElementById('editIndex').value = index;
     document.getElementById('formTitle').innerText = "Editando Paciente";
@@ -161,7 +175,7 @@ function prepararEdicao(index) {
 }
 
 function excluirPaciente(index) {
-    if (confirm("Deseja realmente excluir este paciente?")) {
+    if (confirm("Excluir este paciente permanentemente?")) {
         pacientes.splice(index, 1);
         localStorage.setItem('fisio_pacientes', JSON.stringify(pacientes));
         renderizarLista();
