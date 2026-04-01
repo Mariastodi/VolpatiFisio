@@ -160,8 +160,6 @@ function exportarWhatsApp() {
         msg += `✅ *${dataMarco.toLocaleDateString('pt-BR')}*\n*${marco.titulo}*\n${marco.desc}\n\n`;
     });
 
-    msg += `_Gerado por Volpati Fisio Pro_`;
-
     navigator.clipboard.writeText(msg).then(() => {
         alert("Copiado para o WhatsApp!");
     });
@@ -187,3 +185,15 @@ function excluirPaciente(index) {
         document.getElementById('placeholder').classList.remove('hidden');
     }
 }
+
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Enter') {
+        const focadoNoNome = document.activeElement.id === 'pacienteNome';
+        const focadoNoProc = document.activeElement.id === 'pacienteProcedimento';
+        const focadoNoData = document.activeElement.id === 'dataCirurgia';
+
+        if (focadoNoNome || focadoNoProc || focadoNoData) {
+            salvarPaciente();
+        }
+    }
+});
