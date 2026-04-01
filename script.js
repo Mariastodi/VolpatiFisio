@@ -16,16 +16,21 @@ function salvarPaciente() {
     const dataInput = document.getElementById('dataCirurgia');
     const editIndexInput = document.getElementById('editIndex');
 
-    const nome = nomeInput.value;
-    const data = dataInput.value;
-    const editIndex = parseInt(editIndexInput.value);
-
-    if (!nome || !data) {
+    if (!nomeInput.value || !dataInput.value) {
         alert("Preencha o nome e a data da cirurgia!");
         return;
     }
 
-    const novoPaciente = { nome, data };
+    let nomeFormatado = nomeInput.value.toLowerCase().split(' ')
+        .map(palavra => palavra.charAt(0).toUpperCase() + palavra.slice(1))
+        .join(' ');
+
+    const novoPaciente = { 
+        nome: nomeFormatado, 
+        data: dataInput.value 
+    };
+
+    const editIndex = parseInt(editIndexInput.value);
 
     if (editIndex > -1) {
         pacientes[editIndex] = novoPaciente;
@@ -55,14 +60,14 @@ function renderizarLista() {
     }
 
     pacientes.forEach((p, index) => {
-        const dataLista = p.data.split('-').reverse().join('/');
+        const dataExibicao = p.data.split('-').reverse().join('/');
         
         lista.innerHTML += `
             <div class="item-paciente p-3 bg-slate-50 rounded-xl border border-slate-200 group transition-all hover:border-blue-300 mb-2">
                 <div class="flex justify-between items-start">
                     <div class="cursor-pointer flex-1" onclick="visualizarCronograma(${index})">
                         <p class="font-bold text-slate-700 group-hover:text-blue-600">${p.nome}</p>
-                        <p class="text-xs text-slate-500">Cirurgia: ${dataLista}</p>
+                        <p class="text-xs text-slate-500">Cirurgia: ${dataExibicao}</p>
                     </div>
                     <div class="flex gap-2 ml-2">
                         <button onclick="prepararEdicao(${index})" class="text-blue-500 hover:text-blue-700" title="Editar">✎</button>
@@ -79,8 +84,8 @@ function filtrarPacientes() {
     const itens = document.getElementsByClassName('item-paciente');
 
     for (let i = 0; i < itens.length; i++) {
-        let nomePaciente = itens[i].innerText.toLowerCase();
-        itens[i].style.display = nomePaciente.includes(termoBusca) ? "" : "none";
+        let texto = itens[i].innerText.toLowerCase();
+        itens[i].style.display = texto.includes(termoBusca) ? "" : "none";
     }
 }
 
@@ -90,7 +95,7 @@ function visualizarCronograma(index) {
     document.getElementById('cronogramaContainer').classList.remove('hidden');
     
     document.getElementById('nomeDisplay').innerHTML = `
-        <span class="text-blue-600 block text-sm uppercase tracking-widest">Paciente</span>
+        <span class="text-blue-600 block text-sm uppercase tracking-widest font-semibold">Paciente</span>
         <h2 class="text-2xl font-bold text-blue-900">${p.nome}</h2>
     `;
     
@@ -107,13 +112,13 @@ function visualizarCronograma(index) {
         const gLink = `https://www.google.com/calendar/render?action=TEMPLATE&text=Fisio:+${p.nome}+(${marco.titulo})&dates=${dataISO}/${dataISO}&details=${marco.desc}&sf=true&output=xml`;
 
         timeline.innerHTML += `
-            <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex justify-between items-center">
+            <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex justify-between items-center transition-hover hover:shadow-md">
                 <div>
                     <span class="text-xs font-bold text-blue-500 uppercase">${dataMarco.toLocaleDateString('pt-BR')}</span>
                     <h3 class="font-bold text-slate-700">${marco.titulo}</h3>
                     <p class="text-sm text-slate-500">${marco.desc}</p>
                 </div>
-                <a href="${gLink}" target="_blank" class="bg-slate-100 hover:bg-blue-100 p-2 rounded-full transition-colors" title="Google Agenda">
+                <a href="${gLink}" target="_blank" class="bg-slate-100 hover:bg-blue-100 p-2 rounded-full transition-colors" title="Adicionar à Agenda">
                     📅
                 </a>
             </div>
@@ -139,6 +144,8 @@ function exportarWhatsApp() {
         dataMarco.setDate(dataBase.getDate() + marco.dias);
         textoMensagem += `✅ *${dataMarco.toLocaleDateString('pt-BR')}*\n*${marco.titulo}*\n${marco.desc}\n\n`;
     });
+
+    textoMensagem += `_Gerado por Volpati Fisio Pro_`;
 
     navigator.clipboard.writeText(textoMensagem).then(() => {
         alert("Checklist de " + p.nome + " copiado para o WhatsApp!");
