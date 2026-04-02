@@ -16,7 +16,7 @@ const db = getFirestore(app);
 const auth = getAuth(app);
 
 let pacientes = [];
-let pacienteAtualId = null; 
+let pacienteAtualId = null;
 
 const marcosModulares = [
     { dias: 0, titulo: "Cirurgia", desc: "Checklist de apresentação" },
@@ -78,39 +78,19 @@ function limparForm() {
 }
 
 document.getElementById('btnSalvar').onclick = salvarPaciente;
-document.getElementById('formCadastro').addEventListener('keypress', (e) => { 
-    if (e.key === 'Enter') { e.preventDefault(); salvarPaciente(); } 
-});
-
-function renderizarLista() {
-    const lista = document.getElementById('listaPacientes');
-    lista.innerHTML = '';
-    pacientes.forEach((p) => {
-        const div = document.createElement('div');
-        div.className = "p-3 bg-white border border-slate-100 rounded-xl hover:border-blue-400 cursor-pointer shadow-sm flex justify-between items-center";
-        div.innerHTML = `
-            <div onclick="visualizarCronograma('${p.id}')" class="flex-grow">
-                <p class="font-bold text-slate-700 text-sm">${p.nome}</p>
-                <p class="text-[11px] text-slate-400 font-medium uppercase">${p.procedimento || '---'}</p>
-            </div>
-            <div class="flex gap-2 text-slate-300">
-                <button onclick="prepararEdicao('${p.id}')" class="hover:text-blue-500">✎</button>
-                <button onclick="excluirPaciente('${p.id}')" class="hover:text-red-500">✕</button>
-            </div>`;
-        lista.appendChild(div);
-    });
-}
+document.getElementById('formCadastro').addEventListener('keypress', (e) => { if (e.key === 'Enter') salvarPaciente(); });
 
 async function atualizarChecklistVisual() {
     const p = pacientes.find(x => x.id === pacienteAtualId);
     const container = document.getElementById('checklistContainer');
+    if (!container) return;
     container.innerHTML = '';
 
     const tarefas = Array.isArray(p.checklist) ? p.checklist : [];
 
     tarefas.forEach((tarefa, index) => {
         const item = document.createElement('div');
-        item.className = "flex items-center gap-2 group animate-fade-in";
+        item.className = "flex items-center gap-2 group fade-in";
         item.innerHTML = `
             <div onclick="alternarTarefa(${index})" class="w-5 h-5 border-2 ${tarefa.feito ? 'bg-blue-500 border-blue-500' : 'border-blue-300'} rounded-full cursor-pointer flex items-center justify-center transition-all">
                 ${tarefa.feito ? '<span class="text-white text-[10px]">✓</span>' : ''}
@@ -149,6 +129,32 @@ document.getElementById('addTarefaBtn').onclick = async () => {
     input.value = '';
 };
 
+document.getElementById('novaTarefaInput').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        document.getElementById('addTarefaBtn').click();
+    }
+});
+
+function renderizarLista() {
+    const lista = document.getElementById('listaPacientes');
+    lista.innerHTML = '';
+    pacientes.forEach((p) => {
+        const div = document.createElement('div');
+        div.className = "p-3 bg-white border border-slate-100 rounded-xl hover:border-blue-400 cursor-pointer shadow-sm flex justify-between items-center";
+        div.innerHTML = `
+            <div onclick="visualizarCronograma('${p.id}')" class="flex-grow">
+                <p class="font-bold text-slate-700 text-sm">${p.nome}</p>
+                <p class="text-[11px] text-slate-400 font-medium uppercase">${p.procedimento || '---'}</p>
+            </div>
+            <div class="flex gap-2 text-slate-300">
+                <button onclick="prepararEdicao('${p.id}')" class="hover:text-blue-500">✎</button>
+                <button onclick="excluirPaciente('${p.id}')" class="hover:text-red-500">✕</button>
+            </div>`;
+        lista.appendChild(div);
+    });
+}
+
 window.visualizarCronograma = (id) => {
     pacienteAtualId = id;
     const p = pacientes.find(x => x.id === id);
@@ -173,6 +179,10 @@ window.visualizarCronograma = (id) => {
     marcosModulares.forEach(m => {
         const dt = new Date(dataBase);
         dt.setDate(dataBase.getDate() + m.dias);
+        
+        const gDate = dt.toISOString().replace(/-|:|\.\d\d\d/g, "").split("T")[0];
+        const gUrl = `https://www.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(m.titulo + ': ' + p.nome)}&dates=${gDate}/${gDate}&details=${encodeURIComponent(m.desc)}&sf=true&output=xml`;
+
         timeline.innerHTML += `
             <div class="bg-white p-4 rounded-2xl border border-slate-50 shadow-sm flex justify-between items-center">
                 <div>
@@ -180,6 +190,7 @@ window.visualizarCronograma = (id) => {
                     <h3 class="font-bold text-slate-800 my-1">${m.titulo}</h3>
                     <p class="text-[11px] text-slate-500">${m.desc}</p>
                 </div>
+                <a href="${gUrl}" target="_blank" class="bg-slate-50 hover:bg-blue-100 p-2.5 rounded-full transition-all">📅</a>
             </div>`;
     });
 
