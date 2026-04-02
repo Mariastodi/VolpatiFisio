@@ -23,7 +23,7 @@
     <div id="loginSection" class="hidden fixed inset-0 bg-slate-900 z-50 flex items-center justify-center p-4">
         <div class="bg-white p-8 rounded-3xl shadow-2xl max-w-sm w-full text-center">
             <h1 class="text-2xl font-bold text-blue-900 mb-2">Volpati Fisio Pro</h1>
-            <p class="text-slate-500 mb-6 text-sm">Acesse sua conta para sincronizar dados.</p>
+            <p class="text-slate-500 mb-6 text-sm">Acesse para sincronizar dados.</p>
             <div class="space-y-4">
                 <input type="email" id="loginEmail" placeholder="E-mail" class="w-full p-3 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500">
                 <input type="password" id="loginSenha" placeholder="Senha" class="w-full p-3 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500">
@@ -36,9 +36,9 @@
         <header class="mb-8 flex justify-between items-center">
             <div>
                 <h1 class="text-3xl font-bold text-blue-900 tracking-tight">Volpati Fisio <span class="font-light text-blue-500">Pro</span></h1>
-                <p class="text-blue-600 font-medium italic-none">Gestão Sincronizada de Pacientes</p>
+                <p class="text-blue-600 font-medium">Gestão Sincronizada de Pacientes</p>
             </div>
-            <button id="btnLogout" class="text-xs text-red-500 font-bold border border-red-200 px-3 py-1 rounded-lg hover:bg-red-50">Sair</button>
+            <button id="btnLogout" class="text-xs text-red-500 font-bold border border-red-200 px-3 py-1 rounded-lg">Sair</button>
         </header>
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -46,17 +46,17 @@
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-blue-100">
                     <h2 class="text-lg font-semibold mb-4 text-blue-800" id="formTitle">Novo Cadastro</h2>
                     <input type="hidden" id="editId" value="">
-                    <div class="space-y-4">
-                        <input type="text" id="pacienteNome" placeholder="Nome do Paciente" class="w-full p-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
-                        <input type="text" id="pacienteProcedimento" placeholder="Procedimento" class="w-full p-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
-                        <input type="date" id="dataCirurgia" class="w-full p-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                    <div class="space-y-4" id="formCadastro">
+                        <input type="text" id="pacienteNome" placeholder="Nome do Paciente" class="w-full p-2.5 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500">
+                        <input type="text" id="pacienteProcedimento" placeholder="Procedimento" class="w-full p-2.5 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500">
+                        <input type="date" id="dataCirurgia" class="w-full p-2.5 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500">
                         <button id="btnSalvar" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold shadow-lg transition-all active:scale-95">Salvar Paciente</button>
                     </div>
                 </div>
 
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-blue-100">
                     <h2 class="text-lg font-semibold mb-4 text-blue-800">Meus Pacientes</h2>
-                    <input type="text" id="buscaPaciente" placeholder="Buscar..." class="w-full mb-4 p-2 text-sm border rounded-lg outline-none focus:ring-1 focus:ring-blue-400">
+                    <input type="text" id="buscaPaciente" placeholder="Buscar..." class="w-full mb-4 p-2 text-sm border rounded-lg outline-none">
                     <div id="listaPacientes" class="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar"></div>
                 </div>
             </aside>
@@ -64,27 +64,26 @@
             <section class="lg:col-span-8">
                 <div id="placeholder" class="bg-white border-2 border-dashed border-blue-100 rounded-3xl p-20 text-center">
                     <div class="text-5xl mb-4">📋</div>
-                    <h3 class="text-slate-400 font-medium">Selecione um paciente na lista ao lado</h3>
+                    <h3 class="text-slate-400 font-medium">Selecione um paciente</h3>
                 </div>
 
                 <div id="cronogramaContainer" class="hidden">
                     <div class="bg-white p-6 rounded-2xl shadow-sm border border-blue-100 mb-6">
                         <div class="flex justify-between items-start mb-6">
                             <div id="nomeDisplay"></div>
-                            <button id="btnZap" class="bg-green-500 hover:bg-green-600 text-white px-5 py-2 rounded-xl font-bold text-sm shadow-md transition-all active:scale-95">Copiar para WhatsApp</button>
+                            <button id="btnZap" class="bg-green-500 hover:bg-green-600 text-white px-5 py-2 rounded-xl font-bold text-sm shadow-md transition-all active:scale-95">Copiar WhatsApp Completo</button>
                         </div>
                         
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-50">
                             <div>
-                                <label class="block text-[11px] font-bold text-blue-500 uppercase tracking-widest mb-3">Checklist de Envios:</label>
-                                <div id="checklistEnvios" class="space-y-2">
-                                    </div>
+                                <label class="block text-[11px] font-bold text-blue-500 uppercase tracking-widest mb-3">Checklist de Tarefas (Edite como quiser):</label>
+                                <textarea id="checklistTexto" class="w-full p-3 text-sm bg-blue-50 border border-blue-100 rounded-xl outline-none h-32 focus:bg-white transition-all" 
+                                    placeholder="• Enviar vídeo 1&#10;• Ligar para retorno..."></textarea>
                             </div>
                             <div>
                                 <label class="block text-[11px] font-bold text-blue-500 uppercase tracking-widest mb-3">Lembretes & Notas:</label>
-                                <textarea id="notasRapidas" class="w-full p-3 text-sm bg-slate-50 border border-slate-100 rounded-xl outline-none h-32 focus:bg-white focus:ring-1 focus:ring-blue-200 transition-all" 
+                                <textarea id="notasRapidas" class="w-full p-3 text-sm bg-slate-50 border border-slate-100 rounded-xl outline-none h-32 focus:bg-white transition-all" 
                                     placeholder="Anote adiamentos ou observações aqui..."></textarea>
-                                <p class="text-[9px] text-slate-400 mt-2 italic">Salvamento automático ao sair do campo.</p>
                             </div>
                         </div>
                     </div>
