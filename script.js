@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getFirestore, collection, addDoc, doc, updateDoc, deleteDoc, query, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 const firebaseConfig = {
@@ -25,14 +25,13 @@ const marcosModulares = [
     { dias: 30, titulo: "30º Dia: Carga", desc: "Evolução de carga avançada" }
 ];
 
+// --- AUTH ---
 document.getElementById('btnLogin').onclick = () => {
     const email = document.getElementById('loginEmail').value;
     const senha = document.getElementById('loginSenha').value;
     signInWithEmailAndPassword(auth, email, senha).catch(e => alert("Erro: " + e.message));
 };
-
 document.getElementById('btnLogout').onclick = () => signOut(auth);
-
 onAuthStateChanged(auth, (user) => {
     if (user) {
         document.getElementById('loginSection').classList.add('hidden');
@@ -58,7 +57,7 @@ async function salvarPaciente() {
     const data = document.getElementById('dataCirurgia').value;
     const editId = document.getElementById('editId').value;
 
-    if (!nome || !data) return alert("Nome e Data são obrigatórios!");
+    if (!nome || !data) return alert("Preencha Nome e Data!");
 
     const dados = { nome, procedimento: proc, data };
 
@@ -67,19 +66,17 @@ async function salvarPaciente() {
         document.getElementById('editId').value = "";
         document.getElementById('formTitle').innerText = "Novo Cadastro";
     } else {
-        await addDoc(collection(db, "pacientes"), { ...dados, notas: "" });
+        // Inicializa com checklist vazio
+        await addDoc(collection(db, "pacientes"), { ...dados, notas: "", checks: {} });
     }
+    limparCampos();
+}
 
-    document.getElementById('pacienteNome').value = "";
-    document.getElementById('pacienteProcedimento').value = "";
-    document.getElementById('dataCirurgia').value = "";
+function limparCampos() {
+    ['pacienteNome', 'pacienteProcedimento', 'dataCirurgia'].forEach(id => document.getElementById(id).value = "");
 }
 
 document.getElementById('btnSalvar').onclick = salvarPaciente;
-
-document.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && document.activeElement.tagName === 'INPUT') salvarPaciente();
-});
 
 function renderizarLista() {
     const lista = document.getElementById('listaPacientes');
@@ -93,16 +90,16 @@ function renderizarLista() {
         const badge = diff >= 60 ? `<span class="bg-orange-100 text-orange-600 text-[9px] font-bold px-2 py-0.5 rounded-full ml-1 animate-pulse">60 DIAS+</span>` : '';
 
         const div = document.createElement('div');
-        div.className = "p-3 bg-white border border-slate-100 rounded-xl hover:border-blue-400 cursor-pointer shadow-sm transition-all";
+        div.className = "p-3 bg-white border border-slate-100 rounded-xl hover:border-blue-400 cursor-pointer shadow-sm";
         div.innerHTML = `
             <div class="flex justify-between items-center">
                 <div onclick="visualizarCronograma('${p.id}')" class="flex-grow">
                     <p class="font-bold text-slate-700 text-sm">${p.nome} ${badge}</p>
-                    <p class="text-[11px] text-slate-400 font-medium uppercase tracking-tight">${p.procedimento || 'Procedimento não informado'}</p>
+                    <p class="text-[11px] text-slate-400 font-medium uppercase italic">${p.procedimento || '---'}</p>
                 </div>
                 <div class="flex gap-3 text-slate-300 ml-2">
-                    <button onclick="prepararEdicao('${p.id}')" class="hover:text-blue-500">✎</button>
-                    <button onclick="excluirPaciente('${p.id}')" class="hover:text-red-500">✕</button>
+                    <button onclick="prepararEdicao('${p.id}')" class="hover:text-blue-500 text-lg">✎</button>
+                    <button onclick="excluirPaciente('${p.id}')" class="hover:text-red-500 text-lg">✕</button>
                 </div>
             </div>`;
         lista.appendChild(div);
@@ -112,19 +109,30 @@ function renderizarLista() {
 window.visualizarCronograma = (id) => {
     const p = pacientes.find(x => x.id === id);
     document.getElementById('placeholder').classList.add('hidden');
-    const container = document.getElementById('cronogramaContainer');
-    container.classList.remove('hidden');
+    document.getElementById('cronogramaContainer').classList.remove('hidden');
     
     document.getElementById('nomeDisplay').innerHTML = `
-        <span class="text-blue-500 text-[10px] font-bold uppercase tracking-widest">${p.procedimento || 'SEM PROCEDIMENTO'}</span>
+        <span class="text-blue-500 text-[10px] font-bold uppercase tracking-widest">${p.procedimento || 'FISIOTERAPIA'}</span>
         <h2 class="text-2xl font-black text-slate-800">${p.nome}</h2>
     `;
     
     const notasField = document.getElementById('notasRapidas');
     notasField.value = p.notas || "";
-    notasField.onblur = async () => {
-        await updateDoc(doc(db, "pacientes", p.id), { notas: notasField.value });
-    };
+    notasField.onblur = async () => await updateDoc(doc(db, "pacientes", p.id), { notas: notasField.value });
+
+    const checkContainer = document.getElementById('checklistEnvios');
+    checkContainer.innerHTML = '';
+    const intensCheck = ["Apresentação", "Vídeo Curativo", "Vídeo Mobilidade", "Vídeo Fortalecimento", "Orientação Carga"];
+    
+    intensCheck.forEach(item => {
+        const isChecked = p.checks && p.checks[item] ? 'checked' : '';
+        checkContainer.innerHTML += `
+            <label class="flex items-center gap-3 p-2 bg-slate-50 rounded-lg cursor-pointer hover:bg-blue-50 transition-colors">
+                <input type="checkbox" ${isChecked} onchange="toggleCheck('${p.id}', '${item}', this.checked)" class="w-4 h-4 accent-blue-600">
+                <span class="text-sm ${isChecked ? 'line-through text-slate-400' : 'text-slate-600 font-medium'}">${item}</span>
+            </label>
+        `;
+    });
 
     const timeline = document.getElementById('timeline');
     timeline.innerHTML = '';
@@ -133,24 +141,40 @@ window.visualizarCronograma = (id) => {
     marcosModulares.forEach(m => {
         const dt = new Date(dataBase);
         dt.setDate(dataBase.getDate() + m.dias);
+        const dataFormatada = dt.toLocaleDateString('pt-BR');
+        
+        const gDate = dt.toISOString().replace(/-|:|\.\d\d\d/g, "").split("T")[0];
+        const gUrl = `https://www.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(m.titulo + ': ' + p.nome)}&dates=${gDate}/${gDate}&details=${encodeURIComponent(m.desc)}&sf=true&output=xml`;
+
         timeline.innerHTML += `
-            <div class="bg-white p-4 rounded-2xl border border-slate-50 shadow-sm">
-                <p class="text-blue-600 font-bold text-xs">${dt.toLocaleDateString('pt-BR')}</p>
-                <h3 class="font-bold text-slate-800 my-1">${m.titulo}</h3>
-                <p class="text-xs text-slate-500 leading-relaxed">${m.desc}</p>
+            <div class="bg-white p-4 rounded-2xl border border-slate-50 shadow-sm flex justify-between items-center">
+                <div>
+                    <p class="text-blue-600 font-bold text-xs">${dataFormatada}</p>
+                    <h3 class="font-bold text-slate-800 my-1">${m.titulo}</h3>
+                    <p class="text-[11px] text-slate-500">${m.desc}</p>
+                </div>
+                <a href="${gUrl}" target="_blank" title="Adicionar à Agenda" class="bg-slate-50 hover:bg-blue-100 p-2.5 rounded-full transition-colors">
+                    📅
+                </a>
             </div>`;
     });
 
     document.getElementById('btnZap').onclick = () => {
-        let msg = `*CRONOGRAMA DE RECUPERAÇÃO*\n*Paciente:* ${p.nome}\n*Procedimento:* ${p.procedimento}\n\n`;
+        let msg = `*CRONOGRAMA: ${p.nome.toUpperCase()}*\n\n`;
         marcosModulares.forEach(m => {
             const dt = new Date(dataBase);
             dt.setDate(dataBase.getDate() + m.dias);
             msg += `✅ *${dt.toLocaleDateString('pt-BR')}* - ${m.titulo}\n`;
         });
-        msg += `\n_Lembretes da Doutora:_\n${p.notas || "(Sem anotações adicionais)"}`;
-        navigator.clipboard.writeText(msg).then(() => alert("Cronograma copiado! Basta colar no WhatsApp."));
+        navigator.clipboard.writeText(msg).then(() => alert("Copiado!"));
     };
+};
+
+window.toggleCheck = async (id, item, status) => {
+    const p = pacientes.find(x => x.id === id);
+    const novosChecks = { ...(p.checks || {}) };
+    novosChecks[item] = status;
+    await updateDoc(doc(db, "pacientes", id), { checks: novosChecks });
 };
 
 window.prepararEdicao = (id) => {
@@ -164,11 +188,10 @@ window.prepararEdicao = (id) => {
 };
 
 window.excluirPaciente = async (id) => {
-    if(confirm("Deseja realmente remover este paciente?")) await deleteDoc(doc(db, "pacientes", id));
+    if(confirm("Remover paciente?")) await deleteDoc(doc(db, "pacientes", id));
 };
 
 document.getElementById('buscaPaciente').onkeyup = () => {
     const termo = document.getElementById('buscaPaciente').value.toLowerCase();
-    const cards = document.querySelectorAll('#listaPacientes > div');
-    cards.forEach(c => c.style.display = c.innerText.toLowerCase().includes(termo) ? '' : 'none');
+    document.querySelectorAll('#listaPacientes > div').forEach(c => c.style.display = c.innerText.toLowerCase().includes(termo) ? '' : 'none');
 };
