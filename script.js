@@ -16,6 +16,8 @@ const db = getFirestore(app);
 const auth = getAuth(app);
 
 let pacientes = [];
+let pacienteAtualId = null; 
+
 const marcosModulares = [
     { dias: 0, titulo: "Cirurgia", desc: "Checklist de apresentação" },
     { dias: 1, titulo: "Troca de Curativo", desc: "Instruções de drenagem" },
@@ -47,6 +49,7 @@ function ouvirDados() {
     onSnapshot(query(collection(db, "pacientes"), orderBy("nome")), (snapshot) => {
         pacientes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         renderizarLista();
+        if (pacienteAtualId) atualizarChecklistVisual();
     });
 }
 
@@ -65,7 +68,7 @@ async function salvarPaciente() {
         document.getElementById('editId').value = "";
         document.getElementById('formTitle').innerText = "Novo Cadastro";
     } else {
-        await addDoc(collection(db, "pacientes"), { ...dados, notas: "", checklist: "" });
+        await addDoc(collection(db, "pacientes"), { ...dados, notas: "", checklist: [] });
     }
     limparForm();
 }
@@ -75,12 +78,8 @@ function limparForm() {
 }
 
 document.getElementById('btnSalvar').onclick = salvarPaciente;
-
-document.getElementById('formCadastro').addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-        e.preventDefault();
-        salvarPaciente();
-    }
+document.getElementById('formCadastro').addEventListener('keypress', (e) => { 
+    if (e.key === 'Enter') { e.preventDefault(); salvarPaciente(); } 
 });
 
 function renderizarLista() {
@@ -102,7 +101,56 @@ function renderizarLista() {
     });
 }
 
+async function atualizarChecklistVisual() {
+    const p = pacientes.find(x => x.id === pacienteAtualId);
+    const container = document.getElementById('checklistContainer');
+    container.innerHTML = '';
+
+    const tarefas = Array.isArray(p.checklist) ? p.checklist : [];
+
+    tarefas.forEach((tarefa, index) => {
+        const item = document.createElement('div');
+        item.className = "flex items-center gap-2 group animate-fade-in";
+        item.innerHTML = `
+            <div onclick="alternarTarefa(${index})" class="w-5 h-5 border-2 ${tarefa.feito ? 'bg-blue-500 border-blue-500' : 'border-blue-300'} rounded-full cursor-pointer flex items-center justify-center transition-all">
+                ${tarefa.feito ? '<span class="text-white text-[10px]">✓</span>' : ''}
+            </div>
+            <span class="text-sm ${tarefa.feito ? 'text-slate-400 line-through' : 'text-slate-700'} flex-grow">${tarefa.texto}</span>
+            <button onclick="removerTarefa(${index})" class="text-slate-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all text-xs">✕</button>
+        `;
+        container.appendChild(item);
+    });
+}
+
+window.alternarTarefa = async (index) => {
+    const p = pacientes.find(x => x.id === pacienteAtualId);
+    let novasTarefas = [...p.checklist];
+    novasTarefas[index].feito = !novasTarefas[index].feito;
+    await updateDoc(doc(db, "pacientes", pacienteAtualId), { checklist: novasTarefas });
+};
+
+window.removerTarefa = async (index) => {
+    const p = pacientes.find(x => x.id === pacienteAtualId);
+    let novasTarefas = [...p.checklist];
+    novasTarefas.splice(index, 1);
+    await updateDoc(doc(db, "pacientes", pacienteAtualId), { checklist: novasTarefas });
+};
+
+document.getElementById('addTarefaBtn').onclick = async () => {
+    const input = document.getElementById('novaTarefaInput');
+    if (!input.value.trim() || !pacienteAtualId) return;
+
+    const p = pacientes.find(x => x.id === pacienteAtualId);
+    const tarefasAtuais = Array.isArray(p.checklist) ? p.checklist : [];
+    
+    await updateDoc(doc(db, "pacientes", pacienteAtualId), { 
+        checklist: [...tarefasAtuais, { texto: input.value.trim(), feito: false }] 
+    });
+    input.value = '';
+};
+
 window.visualizarCronograma = (id) => {
+    pacienteAtualId = id;
     const p = pacientes.find(x => x.id === id);
     document.getElementById('placeholder').classList.add('hidden');
     document.getElementById('cronogramaContainer').classList.remove('hidden');
@@ -112,10 +160,7 @@ window.visualizarCronograma = (id) => {
         <h2 class="text-2xl font-black text-slate-800">${p.nome}</h2>
     `;
     
-    const checkField = document.getElementById('checklistTexto');
-    checkField.value = p.checklist || "";
-    checkField.placeholder = "• Exemplo: Enviar vídeo\n• Ligar para retorno...";
-    checkField.onblur = async () => await updateDoc(doc(db, "pacientes", p.id), { checklist: checkField.value });
+    atualizarChecklistVisual();
 
     const notasField = document.getElementById('notasRapidas');
     notasField.value = p.notas || "";
@@ -128,9 +173,6 @@ window.visualizarCronograma = (id) => {
     marcosModulares.forEach(m => {
         const dt = new Date(dataBase);
         dt.setDate(dataBase.getDate() + m.dias);
-        const gDate = dt.toISOString().replace(/-|:|\.\d\d\d/g, "").split("T")[0];
-        const gUrl = `https://www.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(m.titulo + ': ' + p.nome)}&dates=${gDate}/${gDate}&details=${encodeURIComponent(m.desc)}&sf=true&output=xml`;
-
         timeline.innerHTML += `
             <div class="bg-white p-4 rounded-2xl border border-slate-50 shadow-sm flex justify-between items-center">
                 <div>
@@ -138,7 +180,6 @@ window.visualizarCronograma = (id) => {
                     <h3 class="font-bold text-slate-800 my-1">${m.titulo}</h3>
                     <p class="text-[11px] text-slate-500">${m.desc}</p>
                 </div>
-                <a href="${gUrl}" target="_blank" class="bg-slate-50 hover:bg-blue-100 p-2.5 rounded-full">📅</a>
             </div>`;
     });
 
@@ -148,13 +189,11 @@ window.visualizarCronograma = (id) => {
         msg += `Procedimento: ${p.procedimento || 'Não informado'}\n`;
         msg += `Data da Cirurgia: ${d}\n`;
         msg += `------------------------------------------\n\n`;
-
         marcosModulares.forEach(m => {
             const dt = new Date(dataBase);
             dt.setDate(dataBase.getDate() + m.dias);
             msg += `✅ *${dt.toLocaleDateString('pt-BR')}*\n*${m.titulo}*\n${m.desc}\n\n`;
         });
-
         navigator.clipboard.writeText(msg).then(() => alert("Copiado com sucesso!"));
     };
 };
