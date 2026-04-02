@@ -2,7 +2,6 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
 import { getFirestore, collection, addDoc, doc, updateDoc, deleteDoc, query, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-// Configuração do Firebase
 const firebaseConfig = {
     apiKey: "AIzaSyC_k47MOMZWXLtZPL4p-kBNtJ_PtwR09Lg",
     authDomain: "volpatifisio.firebaseapp.com",
@@ -19,23 +18,20 @@ const auth = getAuth(app);
 let pacientes = [];
 let pacienteAtualId = null;
 
-// Marcos da Fisioterapia
 const marcosModulares = [
     { dias: 0, titulo: "Cirurgia", desc: "Checklist de apresentação" },
     { dias: 1, titulo: "Troca de Curativo", desc: "Instruções de drenagem" },
     { dias: 10, titulo: "10º Dia: Mobilidade", desc: "Sentar e levantar, elevação pélvica" },
     { dias: 15, titulo: "15º Dia: Pontos", desc: "Retirada de pontos e marcha" },
     { dias: 20, titulo: "20º Dia: Fortalecimento", desc: "Agachamento e Kabat" },
-    { dias: 30, titulo: "30º Dia: Carga", desc: "Evolução de carga avançada" }
+    { dias: 30, titulo: "30º Dia: Carga", desc: "Evolução de carga avançada" },
+    { dias: 60, titulo: "60º Dia: Alta/Transição", desc: "Avaliação de retorno esportivo e alta fisioterapêutica" }
 ];
 
-// --- AUTENTICAÇÃO ---
 document.getElementById('btnLogin').onclick = () => {
-    const email = document.getElementById('loginEmail').value;
-    const senha = document.getElementById('loginSenha').value;
-    signInWithEmailAndPassword(auth, email, senha).catch(e => alert("Erro: " + e.message));
+    signInWithEmailAndPassword(auth, document.getElementById('loginEmail').value, document.getElementById('loginSenha').value)
+    .catch(e => alert("Erro: " + e.message));
 };
-
 document.getElementById('btnLogout').onclick = () => signOut(auth);
 
 onAuthStateChanged(auth, (user) => {
@@ -50,13 +46,10 @@ onAuthStateChanged(auth, (user) => {
     }
 });
 
-// --- LÓGICA DE DADOS (FIRESTORE) ---
 function ouvirDados() {
     onSnapshot(query(collection(db, "pacientes"), orderBy("nome")), (snapshot) => {
         pacientes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         renderizarLista();
-        
-        // Se o paciente atual foi excluído por outro meio, reseta a tela
         if (pacienteAtualId && !pacientes.some(p => p.id === pacienteAtualId)) {
             resetarVisualizacao();
         } else if (pacienteAtualId) {
@@ -75,94 +68,64 @@ async function salvarPaciente() {
 
     const dados = { nome, procedimento: proc, data };
 
-    try {
-        if (editId) {
-            await updateDoc(doc(db, "pacientes", editId), dados);
-            document.getElementById('editId').value = "";
-            document.getElementById('formTitle').innerText = "Novo Cadastro";
-        } else {
-            await addDoc(collection(db, "pacientes"), { 
-                ...dados, 
-                notas: "", 
-                checklist: [],
-                criadoEm: new Date().toISOString()
-            });
-        }
-        limparForm();
-    } catch (e) {
-        alert("Erro ao salvar: " + e.message);
+    if (editId) {
+        await updateDoc(doc(db, "pacientes", editId), dados);
+        document.getElementById('editId').value = "";
+        document.getElementById('formTitle').innerText = "Novo Cadastro";
+    } else {
+        await addDoc(collection(db, "pacientes"), { ...dados, notas: "", checklist: [] });
     }
+    limparForm();
 }
 document.getElementById('btnSalvar').onclick = salvarPaciente;
 
-// --- INTERFACE E RENDERIZAÇÃO ---
-function renderizarLista() {
-    const lista = document.getElementById('listaPacientes');
-    lista.innerHTML = '';
-    pacientes.forEach((p) => {
-        const div = document.createElement('div');
-        div.className = "p-3 bg-white border border-slate-100 rounded-xl hover:border-blue-400 cursor-pointer shadow-sm flex justify-between items-center transition-all";
-        div.innerHTML = `
-            <div onclick="visualizarCronograma('${p.id}')" class="flex-grow">
-                <p class="font-bold text-slate-700 text-sm">${p.nome}</p>
-                <p class="text-[11px] text-slate-400 font-medium uppercase">${p.procedimento || '---'}</p>
-            </div>
-            <div class="flex gap-2 text-slate-300">
-                <button onclick="prepararEdicao('${p.id}')" class="hover:text-blue-500 transition-colors">✎</button>
-                <button onclick="excluirPaciente('${p.id}')" class="hover:text-red-500 transition-colors">✕</button>
-            </div>`;
-        lista.appendChild(div);
+['pacienteNome', 'pacienteProcedimento', 'dataCirurgia'].forEach(id => {
+    document.getElementById(id).addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            salvarPaciente();
+        }
     });
-}
+});
 
 window.visualizarCronograma = (id) => {
     pacienteAtualId = id;
     const p = pacientes.find(x => x.id === id);
-    if (!p) return;
-
     document.getElementById('placeholder').classList.add('hidden');
     document.getElementById('cronogramaContainer').classList.remove('hidden');
     
-    // Cálculo de dias (ajustado para evitar erro de fuso horário)
     const hoje = new Date();
     hoje.setHours(0,0,0,0);
-    const dataCirurgia = new Date(p.data.replace(/-/g, '\/')); 
+    const dataCirurgia = new Date(p.data.replace(/-/g, '\/'));
     const diffTime = hoje - dataCirurgia;
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
     
     const labelDias = diffDays === 0 ? "Dia da Cirurgia" : (diffDays > 0 ? `${diffDays} dias de pós` : `Faltam ${Math.abs(diffDays)} dias`);
+    
+    let avisoAlta = diffDays >= 60 ? `<span class="ml-2 bg-amber-100 text-amber-700 px-2 py-0.5 rounded text-[10px] font-bold animate-pulse">⚠️ MARCO 60 DIAS</span>` : "";
 
     document.getElementById('nomeDisplay').innerHTML = `
-        <span class="text-blue-500 text-[10px] font-bold uppercase tracking-widest">${p.procedimento || 'FISIOTERAPIA'} • ${labelDias}</span>
+        <span class="text-blue-500 text-[10px] font-bold uppercase tracking-widest">${p.procedimento || 'FISIOTERAPIA'} • ${labelDias} ${avisoAlta}</span>
         <h2 class="text-2xl font-black text-slate-800">${p.nome}</h2>
     `;
     
     atualizarChecklistVisual();
-    
     const notasField = document.getElementById('notasRapidas');
     notasField.value = p.notas || "";
     notasField.onblur = async () => {
-        if (pacienteAtualId === p.id) {
-            await updateDoc(doc(db, "pacientes", p.id), { notas: notasField.value });
-        }
+        if(pacienteAtualId) await updateDoc(doc(db, "pacientes", pacienteAtualId), { notas: notasField.value });
     };
 
-    renderizarTimeline(dataCirurgia, p);
-};
-
-function renderizarTimeline(dataCirurgia, p) {
     const timeline = document.getElementById('timeline');
     timeline.innerHTML = '';
-    
     marcosModulares.forEach(m => {
         const dt = new Date(dataCirurgia);
         dt.setDate(dataCirurgia.getDate() + m.dias);
-        
         const gDate = dt.toISOString().replace(/-|:|\.\d\d\d/g, "").split("T")[0];
         const gUrl = `https://www.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(m.titulo + ': ' + p.nome)}&dates=${gDate}/${gDate}&details=${encodeURIComponent(m.desc)}&sf=true&output=xml`;
 
         timeline.innerHTML += `
-            <div class="bg-white p-4 rounded-2xl border border-slate-50 shadow-sm flex justify-between items-center hover:shadow-md transition-shadow">
+            <div class="bg-white p-4 rounded-2xl border border-slate-50 shadow-sm flex justify-between items-center hover:border-blue-200 transition-all">
                 <div>
                     <p class="text-blue-600 font-bold text-xs">${dt.toLocaleDateString('pt-BR')}</p>
                     <h3 class="font-bold text-slate-800 my-1">${m.titulo}</h3>
@@ -172,28 +135,41 @@ function renderizarTimeline(dataCirurgia, p) {
             </div>`;
     });
 
-    // Configuração do botão WhatsApp
     document.getElementById('btnZap').onclick = () => {
         const d = p.data.split('-').reverse().join('/');
-        let msg = `*PLANO DE RECUPERAÇÃO: ${p.nome.toUpperCase()}*\n`;
-        msg += `Procedimento: ${p.procedimento || '---'}\nData: ${d}\n\n`;
-        
+        let msg = `*PLANO DE RECUPERAÇÃO: ${p.nome.toUpperCase()}*\nProcedimento: ${p.procedimento || '---'}\nData: ${d}\nStatus: ${labelDias}\n\n`;
         marcosModulares.forEach(m => {
             const dt = new Date(dataCirurgia);
             dt.setDate(dataCirurgia.getDate() + m.dias);
-            msg += `✅ *${dt.toLocaleDateString('pt-BR')}* - *${m.titulo}*\n${m.desc}\n\n`;
+            msg += `✅ *${dt.toLocaleDateString('pt-BR')}*\n*${m.titulo}*\n${m.desc}\n\n`;
         });
-
-        navigator.clipboard.writeText(msg).then(() => alert("Cronograma copiado para o teclado!"));
+        navigator.clipboard.writeText(msg).then(() => alert("Copiado com sucesso!"));
     };
+};
+
+function renderizarLista() {
+    const lista = document.getElementById('listaPacientes');
+    lista.innerHTML = '';
+    pacientes.forEach((p) => {
+        const div = document.createElement('div');
+        div.className = "p-3 bg-white border border-slate-100 rounded-xl hover:border-blue-400 cursor-pointer shadow-sm flex justify-between items-center";
+        div.innerHTML = `
+            <div onclick="visualizarCronograma('${p.id}')" class="flex-grow">
+                <p class="font-bold text-slate-700 text-sm">${p.nome}</p>
+                <p class="text-[11px] text-slate-400 font-medium uppercase">${p.procedimento || '---'}</p>
+            </div>
+            <div class="flex gap-2 text-slate-300">
+                <button onclick="prepararEdicao('${p.id}')" class="hover:text-blue-500">✎</button>
+                <button onclick="excluirPaciente('${p.id}')" class="hover:text-red-500">✕</button>
+            </div>`;
+        lista.appendChild(div);
+    });
 }
 
-// --- FUNÇÕES DE CHECKLIST ---
 async function atualizarChecklistVisual() {
     const p = pacientes.find(x => x.id === pacienteAtualId);
     const container = document.getElementById('checklistContainer');
     if (!container || !p) return;
-    
     container.innerHTML = '';
     const tarefas = Array.isArray(p.checklist) ? p.checklist : [];
 
@@ -236,7 +212,6 @@ document.getElementById('addTarefaBtn').onclick = async () => {
     input.value = '';
 };
 
-// --- AUXILIARES E LIMPEZA ---
 window.prepararEdicao = (id) => {
     const p = pacientes.find(x => x.id === id);
     document.getElementById('pacienteNome').value = p.nome;
@@ -248,7 +223,7 @@ window.prepararEdicao = (id) => {
 };
 
 window.excluirPaciente = async (id) => {
-    if(confirm("Deseja realmente remover este paciente?")) {
+    if(confirm("Remover paciente?")) {
         await deleteDoc(doc(db, "pacientes", id));
         if (pacienteAtualId === id) resetarVisualizacao();
     }
