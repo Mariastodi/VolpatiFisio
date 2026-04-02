@@ -78,14 +78,12 @@ function limparForm() {
 }
 
 document.getElementById('btnSalvar').onclick = salvarPaciente;
-document.getElementById('formCadastro').addEventListener('keypress', (e) => { if (e.key === 'Enter') salvarPaciente(); });
 
 async function atualizarChecklistVisual() {
     const p = pacientes.find(x => x.id === pacienteAtualId);
     const container = document.getElementById('checklistContainer');
     if (!container) return;
     container.innerHTML = '';
-
     const tarefas = Array.isArray(p.checklist) ? p.checklist : [];
 
     tarefas.forEach((tarefa, index) => {
@@ -104,37 +102,85 @@ async function atualizarChecklistVisual() {
 
 window.alternarTarefa = async (index) => {
     const p = pacientes.find(x => x.id === pacienteAtualId);
-    let novasTarefas = [...p.checklist];
-    novasTarefas[index].feito = !novasTarefas[index].feito;
-    await updateDoc(doc(db, "pacientes", pacienteAtualId), { checklist: novasTarefas });
+    let n = [...p.checklist];
+    n[index].feito = !n[index].feito;
+    await updateDoc(doc(db, "pacientes", pacienteAtualId), { checklist: n });
 };
 
 window.removerTarefa = async (index) => {
     const p = pacientes.find(x => x.id === pacienteAtualId);
-    let novasTarefas = [...p.checklist];
-    novasTarefas.splice(index, 1);
-    await updateDoc(doc(db, "pacientes", pacienteAtualId), { checklist: novasTarefas });
+    let n = [...p.checklist];
+    n.splice(index, 1);
+    await updateDoc(doc(db, "pacientes", pacienteAtualId), { checklist: n });
 };
 
 document.getElementById('addTarefaBtn').onclick = async () => {
     const input = document.getElementById('novaTarefaInput');
     if (!input.value.trim() || !pacienteAtualId) return;
-
     const p = pacientes.find(x => x.id === pacienteAtualId);
-    const tarefasAtuais = Array.isArray(p.checklist) ? p.checklist : [];
-    
+    const atuais = Array.isArray(p.checklist) ? p.checklist : [];
     await updateDoc(doc(db, "pacientes", pacienteAtualId), { 
-        checklist: [...tarefasAtuais, { texto: input.value.trim(), feito: false }] 
+        checklist: [...atuais, { texto: input.value.trim(), feito: false }] 
     });
     input.value = '';
 };
 
 document.getElementById('novaTarefaInput').addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-        e.preventDefault();
-        document.getElementById('addTarefaBtn').click();
-    }
+    if (e.key === 'Enter') { e.preventDefault(); document.getElementById('addTarefaBtn').click(); }
 });
+
+window.visualizarCronograma = (id) => {
+    pacienteAtualId = id;
+    const p = pacientes.find(x => x.id === id);
+    document.getElementById('placeholder').classList.add('hidden');
+    document.getElementById('cronogramaContainer').classList.remove('hidden');
+    
+    const hoje = new Date();
+    const dataCirurgia = new Date(p.data + 'T00:00:00');
+    const diffTime = hoje - dataCirurgia;
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    const labelDias = diffDays === 0 ? "Dia da Cirurgia" : (diffDays > 0 ? `${diffDays} dias de pós` : `Faltam ${Math.abs(diffDays)} dias`);
+
+    document.getElementById('nomeDisplay').innerHTML = `
+        <span class="text-blue-500 text-[10px] font-bold uppercase tracking-widest">${p.procedimento || 'FISIOTERAPIA'} • ${labelDias}</span>
+        <h2 class="text-2xl font-black text-slate-800">${p.nome}</h2>
+    `;
+    
+    atualizarChecklistVisual();
+    const notasField = document.getElementById('notasRapidas');
+    notasField.value = p.notas || "";
+    notasField.onblur = async () => await updateDoc(doc(db, "pacientes", p.id), { notas: notasField.value });
+
+    const timeline = document.getElementById('timeline');
+    timeline.innerHTML = '';
+    marcosModulares.forEach(m => {
+        const dt = new Date(dataCirurgia);
+        dt.setDate(dataCirurgia.getDate() + m.dias);
+        const gDate = dt.toISOString().replace(/-|:|\.\d\d\d/g, "").split("T")[0];
+        const gUrl = `https://www.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(m.titulo + ': ' + p.nome)}&dates=${gDate}/${gDate}&details=${encodeURIComponent(m.desc)}&sf=true&output=xml`;
+
+        timeline.innerHTML += `
+            <div class="bg-white p-4 rounded-2xl border border-slate-50 shadow-sm flex justify-between items-center">
+                <div>
+                    <p class="text-blue-600 font-bold text-xs">${dt.toLocaleDateString('pt-BR')}</p>
+                    <h3 class="font-bold text-slate-800 my-1">${m.titulo}</h3>
+                    <p class="text-[11px] text-slate-500">${m.desc}</p>
+                </div>
+                <a href="${gUrl}" target="_blank" class="bg-slate-50 hover:bg-blue-100 p-2.5 rounded-full transition-all">📅</a>
+            </div>`;
+    });
+
+    document.getElementById('btnZap').onclick = () => {
+        const d = p.data.split('-').reverse().join('/');
+        let msg = `*PLANO DE RECUPERAÇÃO: ${p.nome.toUpperCase()}*\nProcedimento: ${p.procedimento || '---'}\nData: ${d}\nStatus: ${labelDias}\n\n`;
+        marcosModulares.forEach(m => {
+            const dt = new Date(dataCirurgia);
+            dt.setDate(dataCirurgia.getDate() + m.dias);
+            msg += `✅ *${dt.toLocaleDateString('pt-BR')}*\n*${m.titulo}*\n${m.desc}\n\n`;
+        });
+        navigator.clipboard.writeText(msg).then(() => alert("Copiado com sucesso!"));
+    };
+};
 
 function renderizarLista() {
     const lista = document.getElementById('listaPacientes');
@@ -154,60 +200,6 @@ function renderizarLista() {
         lista.appendChild(div);
     });
 }
-
-window.visualizarCronograma = (id) => {
-    pacienteAtualId = id;
-    const p = pacientes.find(x => x.id === id);
-    document.getElementById('placeholder').classList.add('hidden');
-    document.getElementById('cronogramaContainer').classList.remove('hidden');
-    
-    document.getElementById('nomeDisplay').innerHTML = `
-        <span class="text-blue-500 text-[10px] font-bold uppercase tracking-widest">${p.procedimento || 'FISIOTERAPIA'}</span>
-        <h2 class="text-2xl font-black text-slate-800">${p.nome}</h2>
-    `;
-    
-    atualizarChecklistVisual();
-
-    const notasField = document.getElementById('notasRapidas');
-    notasField.value = p.notas || "";
-    notasField.onblur = async () => await updateDoc(doc(db, "pacientes", p.id), { notas: notasField.value });
-
-    const timeline = document.getElementById('timeline');
-    timeline.innerHTML = '';
-    const dataBase = new Date(p.data + 'T00:00:00');
-
-    marcosModulares.forEach(m => {
-        const dt = new Date(dataBase);
-        dt.setDate(dataBase.getDate() + m.dias);
-        
-        const gDate = dt.toISOString().replace(/-|:|\.\d\d\d/g, "").split("T")[0];
-        const gUrl = `https://www.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(m.titulo + ': ' + p.nome)}&dates=${gDate}/${gDate}&details=${encodeURIComponent(m.desc)}&sf=true&output=xml`;
-
-        timeline.innerHTML += `
-            <div class="bg-white p-4 rounded-2xl border border-slate-50 shadow-sm flex justify-between items-center">
-                <div>
-                    <p class="text-blue-600 font-bold text-xs">${dt.toLocaleDateString('pt-BR')}</p>
-                    <h3 class="font-bold text-slate-800 my-1">${m.titulo}</h3>
-                    <p class="text-[11px] text-slate-500">${m.desc}</p>
-                </div>
-                <a href="${gUrl}" target="_blank" class="bg-slate-50 hover:bg-blue-100 p-2.5 rounded-full transition-all">📅</a>
-            </div>`;
-    });
-
-    document.getElementById('btnZap').onclick = () => {
-        const d = p.data.split('-').reverse().join('/');
-        let msg = `*PLANO DE RECUPERAÇÃO: ${p.nome.toUpperCase()}*\n`;
-        msg += `Procedimento: ${p.procedimento || 'Não informado'}\n`;
-        msg += `Data da Cirurgia: ${d}\n`;
-        msg += `------------------------------------------\n\n`;
-        marcosModulares.forEach(m => {
-            const dt = new Date(dataBase);
-            dt.setDate(dataBase.getDate() + m.dias);
-            msg += `✅ *${dt.toLocaleDateString('pt-BR')}*\n*${m.titulo}*\n${m.desc}\n\n`;
-        });
-        navigator.clipboard.writeText(msg).then(() => alert("Copiado com sucesso!"));
-    };
-};
 
 window.prepararEdicao = (id) => {
     const p = pacientes.find(x => x.id === id);
