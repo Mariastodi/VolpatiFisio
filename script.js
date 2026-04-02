@@ -114,6 +114,7 @@ window.visualizarCronograma = (id) => {
     
     const checkField = document.getElementById('checklistTexto');
     checkField.value = p.checklist || "";
+    checkField.placeholder = "• Exemplo: Enviar vídeo\n• Ligar para retorno...";
     checkField.onblur = async () => await updateDoc(doc(db, "pacientes", p.id), { checklist: checkField.value });
 
     const notasField = document.getElementById('notasRapidas');
