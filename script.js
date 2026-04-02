@@ -25,21 +25,28 @@ const marcosModulares = [
     { dias: 30, titulo: "30º Dia: Carga", desc: "Evolução de carga avançada" }
 ];
 
-// --- AUTH ---
 document.getElementById('btnLogin').onclick = () => {
     const email = document.getElementById('loginEmail').value;
     const senha = document.getElementById('loginSenha').value;
-    signInWithEmailAndPassword(auth, email, senha).catch(e => alert("Erro: " + e.message));
+    signInWithEmailAndPassword(auth, email, senha).catch(e => alert("Erro ao entrar: " + e.message));
 };
+
 document.getElementById('btnLogout').onclick = () => signOut(auth);
+
 onAuthStateChanged(auth, (user) => {
+    const loading = document.getElementById('loadingScreen');
+    const login = document.getElementById('loginSection');
+    const appUi = document.getElementById('appContent');
+
+    loading.classList.add('hidden');
+
     if (user) {
-        document.getElementById('loginSection').classList.add('hidden');
-        document.getElementById('appContent').classList.remove('hidden');
+        login.classList.add('hidden');
+        appUi.classList.remove('hidden');
         ouvirDados();
     } else {
-        document.getElementById('loginSection').classList.remove('hidden');
-        document.getElementById('appContent').classList.add('hidden');
+        login.classList.remove('hidden');
+        appUi.classList.add('hidden');
     }
 });
 
@@ -66,7 +73,6 @@ async function salvarPaciente() {
         document.getElementById('editId').value = "";
         document.getElementById('formTitle').innerText = "Novo Cadastro";
     } else {
-        // Inicializa com checklist vazio
         await addDoc(collection(db, "pacientes"), { ...dados, notas: "", checks: {} });
     }
     limparCampos();
@@ -87,19 +93,19 @@ function renderizarLista() {
     pacientes.forEach((p) => {
         const dataC = new Date(p.data + 'T00:00:00');
         const diff = Math.floor((hoje - dataC) / (1000 * 60 * 60 * 24));
-        const badge = diff >= 60 ? `<span class="bg-orange-100 text-orange-600 text-[9px] font-bold px-2 py-0.5 rounded-full ml-1 animate-pulse">60 DIAS+</span>` : '';
+        const badge = diff >= 60 ? `<span class="bg-orange-100 text-orange-600 text-[9px] font-bold px-2 py-0.5 rounded-full ml-1">60 DIAS+</span>` : '';
 
         const div = document.createElement('div');
-        div.className = "p-3 bg-white border border-slate-100 rounded-xl hover:border-blue-400 cursor-pointer shadow-sm";
+        div.className = "p-3 bg-white border border-slate-100 rounded-xl hover:border-blue-400 cursor-pointer shadow-sm transition-all";
         div.innerHTML = `
             <div class="flex justify-between items-center">
                 <div onclick="visualizarCronograma('${p.id}')" class="flex-grow">
                     <p class="font-bold text-slate-700 text-sm">${p.nome} ${badge}</p>
-                    <p class="text-[11px] text-slate-400 font-medium uppercase italic">${p.procedimento || '---'}</p>
+                    <p class="text-[11px] text-slate-400 font-medium uppercase">${p.procedimento || 'FISIOTERAPIA'}</p>
                 </div>
                 <div class="flex gap-3 text-slate-300 ml-2">
-                    <button onclick="prepararEdicao('${p.id}')" class="hover:text-blue-500 text-lg">✎</button>
-                    <button onclick="excluirPaciente('${p.id}')" class="hover:text-red-500 text-lg">✕</button>
+                    <button onclick="prepararEdicao('${p.id}')" class="hover:text-blue-500">✎</button>
+                    <button onclick="excluirPaciente('${p.id}')" class="hover:text-red-500">✕</button>
                 </div>
             </div>`;
         lista.appendChild(div);
@@ -122,9 +128,9 @@ window.visualizarCronograma = (id) => {
 
     const checkContainer = document.getElementById('checklistEnvios');
     checkContainer.innerHTML = '';
-    const intensCheck = ["Apresentação", "Vídeo Curativo", "Vídeo Mobilidade", "Vídeo Fortalecimento", "Orientação Carga"];
+    const itensNecessarios = ["Apresentação", "Vídeo Curativo", "Vídeo Mobilidade", "Vídeo Fortalecimento", "Orientação Carga"];
     
-    intensCheck.forEach(item => {
+    itensNecessarios.forEach(item => {
         const isChecked = p.checks && p.checks[item] ? 'checked' : '';
         checkContainer.innerHTML += `
             <label class="flex items-center gap-3 p-2 bg-slate-50 rounded-lg cursor-pointer hover:bg-blue-50 transition-colors">
@@ -147,26 +153,26 @@ window.visualizarCronograma = (id) => {
         const gUrl = `https://www.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(m.titulo + ': ' + p.nome)}&dates=${gDate}/${gDate}&details=${encodeURIComponent(m.desc)}&sf=true&output=xml`;
 
         timeline.innerHTML += `
-            <div class="bg-white p-4 rounded-2xl border border-slate-50 shadow-sm flex justify-between items-center">
+            <div class="bg-white p-4 rounded-2xl border border-slate-50 shadow-sm flex justify-between items-center hover:shadow-md transition-all">
                 <div>
                     <p class="text-blue-600 font-bold text-xs">${dataFormatada}</p>
                     <h3 class="font-bold text-slate-800 my-1">${m.titulo}</h3>
                     <p class="text-[11px] text-slate-500">${m.desc}</p>
                 </div>
-                <a href="${gUrl}" target="_blank" title="Adicionar à Agenda" class="bg-slate-50 hover:bg-blue-100 p-2.5 rounded-full transition-colors">
+                <a href="${gUrl}" target="_blank" title="Adicionar ao Google Agenda" class="bg-slate-50 hover:bg-blue-100 p-2.5 rounded-full transition-colors">
                     📅
                 </a>
             </div>`;
     });
 
     document.getElementById('btnZap').onclick = () => {
-        let msg = `*CRONOGRAMA: ${p.nome.toUpperCase()}*\n\n`;
+        let msg = `*CRONOGRAMA PÓS-OP: ${p.nome.toUpperCase()}*\n\n`;
         marcosModulares.forEach(m => {
             const dt = new Date(dataBase);
             dt.setDate(dataBase.getDate() + m.dias);
             msg += `✅ *${dt.toLocaleDateString('pt-BR')}* - ${m.titulo}\n`;
         });
-        navigator.clipboard.writeText(msg).then(() => alert("Copiado!"));
+        navigator.clipboard.writeText(msg).then(() => alert("Cronograma copiado! Basta colar no WhatsApp."));
     };
 };
 
@@ -188,10 +194,12 @@ window.prepararEdicao = (id) => {
 };
 
 window.excluirPaciente = async (id) => {
-    if(confirm("Remover paciente?")) await deleteDoc(doc(db, "pacientes", id));
+    if(confirm("Deseja realmente excluir este paciente?")) await deleteDoc(doc(db, "pacientes", id));
 };
 
 document.getElementById('buscaPaciente').onkeyup = () => {
     const termo = document.getElementById('buscaPaciente').value.toLowerCase();
-    document.querySelectorAll('#listaPacientes > div').forEach(c => c.style.display = c.innerText.toLowerCase().includes(termo) ? '' : 'none');
+    document.querySelectorAll('#listaPacientes > div').forEach(c => {
+        c.style.display = c.innerText.toLowerCase().includes(termo) ? '' : 'none';
+    });
 };
