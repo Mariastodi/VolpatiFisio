@@ -19,40 +19,32 @@ let pacientes = [];
 const marcosModulares = [
     { dias: 0, titulo: "Cirurgia", desc: "Checklist de apresentação" },
     { dias: 1, titulo: "Troca de Curativo", desc: "Instruções de drenagem" },
-    { dias: 10, titulo: "10º Dia: Mobilidade", desc: "Sentar e levantar" },
-    { dias: 15, titulo: "15º Dia: Pontos", desc: "Retirada de pontos" },
+    { dias: 10, titulo: "10º Dia: Mobilidade", desc: "Sentar e levantar, elevação pélvica" },
+    { dias: 15, titulo: "15º Dia: Pontos", desc: "Retirada de pontos e marcha" },
     { dias: 20, titulo: "20º Dia: Fortalecimento", desc: "Agachamento e Kabat" },
     { dias: 30, titulo: "30º Dia: Carga", desc: "Evolução de carga avançada" }
 ];
 
 document.getElementById('btnLogin').onclick = () => {
-    const email = document.getElementById('loginEmail').value;
-    const senha = document.getElementById('loginSenha').value;
-    signInWithEmailAndPassword(auth, email, senha).catch(e => alert("Erro ao entrar: " + e.message));
+    signInWithEmailAndPassword(auth, document.getElementById('loginEmail').value, document.getElementById('loginSenha').value)
+    .catch(e => alert("Erro: " + e.message));
 };
-
 document.getElementById('btnLogout').onclick = () => signOut(auth);
 
 onAuthStateChanged(auth, (user) => {
-    const loading = document.getElementById('loadingScreen');
-    const login = document.getElementById('loginSection');
-    const appUi = document.getElementById('appContent');
-
-    loading.classList.add('hidden');
-
+    document.getElementById('loadingScreen').classList.add('hidden');
     if (user) {
-        login.classList.add('hidden');
-        appUi.classList.remove('hidden');
+        document.getElementById('loginSection').classList.add('hidden');
+        document.getElementById('appContent').classList.remove('hidden');
         ouvirDados();
     } else {
-        login.classList.remove('hidden');
-        appUi.classList.add('hidden');
+        document.getElementById('loginSection').classList.remove('hidden');
+        document.getElementById('appContent').classList.add('hidden');
     }
 });
 
 function ouvirDados() {
-    const q = query(collection(db, "pacientes"), orderBy("nome"));
-    onSnapshot(q, (snapshot) => {
+    onSnapshot(query(collection(db, "pacientes"), orderBy("nome")), (snapshot) => {
         pacientes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         renderizarLista();
     });
@@ -73,40 +65,38 @@ async function salvarPaciente() {
         document.getElementById('editId').value = "";
         document.getElementById('formTitle').innerText = "Novo Cadastro";
     } else {
-        await addDoc(collection(db, "pacientes"), { ...dados, notas: "", checks: {} });
+        await addDoc(collection(db, "pacientes"), { ...dados, notas: "", checklist: "" });
     }
-    limparCampos();
+    limparForm();
 }
 
-function limparCampos() {
+function limparForm() {
     ['pacienteNome', 'pacienteProcedimento', 'dataCirurgia'].forEach(id => document.getElementById(id).value = "");
 }
 
 document.getElementById('btnSalvar').onclick = salvarPaciente;
 
+document.getElementById('formCadastro').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        salvarPaciente();
+    }
+});
+
 function renderizarLista() {
     const lista = document.getElementById('listaPacientes');
     lista.innerHTML = '';
-    const hoje = new Date();
-    hoje.setHours(0,0,0,0);
-
     pacientes.forEach((p) => {
-        const dataC = new Date(p.data + 'T00:00:00');
-        const diff = Math.floor((hoje - dataC) / (1000 * 60 * 60 * 24));
-        const badge = diff >= 60 ? `<span class="bg-orange-100 text-orange-600 text-[9px] font-bold px-2 py-0.5 rounded-full ml-1">60 DIAS+</span>` : '';
-
         const div = document.createElement('div');
-        div.className = "p-3 bg-white border border-slate-100 rounded-xl hover:border-blue-400 cursor-pointer shadow-sm transition-all";
+        div.className = "p-3 bg-white border border-slate-100 rounded-xl hover:border-blue-400 cursor-pointer shadow-sm flex justify-between items-center";
         div.innerHTML = `
-            <div class="flex justify-between items-center">
-                <div onclick="visualizarCronograma('${p.id}')" class="flex-grow">
-                    <p class="font-bold text-slate-700 text-sm">${p.nome} ${badge}</p>
-                    <p class="text-[11px] text-slate-400 font-medium uppercase">${p.procedimento || 'FISIOTERAPIA'}</p>
-                </div>
-                <div class="flex gap-3 text-slate-300 ml-2">
-                    <button onclick="prepararEdicao('${p.id}')" class="hover:text-blue-500">✎</button>
-                    <button onclick="excluirPaciente('${p.id}')" class="hover:text-red-500">✕</button>
-                </div>
+            <div onclick="visualizarCronograma('${p.id}')" class="flex-grow">
+                <p class="font-bold text-slate-700 text-sm">${p.nome}</p>
+                <p class="text-[11px] text-slate-400 font-medium uppercase">${p.procedimento || '---'}</p>
+            </div>
+            <div class="flex gap-2 text-slate-300">
+                <button onclick="prepararEdicao('${p.id}')" class="hover:text-blue-500">✎</button>
+                <button onclick="excluirPaciente('${p.id}')" class="hover:text-red-500">✕</button>
             </div>`;
         lista.appendChild(div);
     });
@@ -122,23 +112,13 @@ window.visualizarCronograma = (id) => {
         <h2 class="text-2xl font-black text-slate-800">${p.nome}</h2>
     `;
     
+    const checkField = document.getElementById('checklistTexto');
+    checkField.value = p.checklist || "";
+    checkField.onblur = async () => await updateDoc(doc(db, "pacientes", p.id), { checklist: checkField.value });
+
     const notasField = document.getElementById('notasRapidas');
     notasField.value = p.notas || "";
     notasField.onblur = async () => await updateDoc(doc(db, "pacientes", p.id), { notas: notasField.value });
-
-    const checkContainer = document.getElementById('checklistEnvios');
-    checkContainer.innerHTML = '';
-    const itensNecessarios = ["Apresentação", "Vídeo Curativo", "Vídeo Mobilidade", "Vídeo Fortalecimento", "Orientação Carga"];
-    
-    itensNecessarios.forEach(item => {
-        const isChecked = p.checks && p.checks[item] ? 'checked' : '';
-        checkContainer.innerHTML += `
-            <label class="flex items-center gap-3 p-2 bg-slate-50 rounded-lg cursor-pointer hover:bg-blue-50 transition-colors">
-                <input type="checkbox" ${isChecked} onchange="toggleCheck('${p.id}', '${item}', this.checked)" class="w-4 h-4 accent-blue-600">
-                <span class="text-sm ${isChecked ? 'line-through text-slate-400' : 'text-slate-600 font-medium'}">${item}</span>
-            </label>
-        `;
-    });
 
     const timeline = document.getElementById('timeline');
     timeline.innerHTML = '';
@@ -147,40 +127,35 @@ window.visualizarCronograma = (id) => {
     marcosModulares.forEach(m => {
         const dt = new Date(dataBase);
         dt.setDate(dataBase.getDate() + m.dias);
-        const dataFormatada = dt.toLocaleDateString('pt-BR');
-        
         const gDate = dt.toISOString().replace(/-|:|\.\d\d\d/g, "").split("T")[0];
         const gUrl = `https://www.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(m.titulo + ': ' + p.nome)}&dates=${gDate}/${gDate}&details=${encodeURIComponent(m.desc)}&sf=true&output=xml`;
 
         timeline.innerHTML += `
-            <div class="bg-white p-4 rounded-2xl border border-slate-50 shadow-sm flex justify-between items-center hover:shadow-md transition-all">
+            <div class="bg-white p-4 rounded-2xl border border-slate-50 shadow-sm flex justify-between items-center">
                 <div>
-                    <p class="text-blue-600 font-bold text-xs">${dataFormatada}</p>
+                    <p class="text-blue-600 font-bold text-xs">${dt.toLocaleDateString('pt-BR')}</p>
                     <h3 class="font-bold text-slate-800 my-1">${m.titulo}</h3>
                     <p class="text-[11px] text-slate-500">${m.desc}</p>
                 </div>
-                <a href="${gUrl}" target="_blank" title="Adicionar ao Google Agenda" class="bg-slate-50 hover:bg-blue-100 p-2.5 rounded-full transition-colors">
-                    📅
-                </a>
+                <a href="${gUrl}" target="_blank" class="bg-slate-50 hover:bg-blue-100 p-2.5 rounded-full">📅</a>
             </div>`;
     });
 
     document.getElementById('btnZap').onclick = () => {
-        let msg = `*CRONOGRAMA PÓS-OP: ${p.nome.toUpperCase()}*\n\n`;
+        const d = p.data.split('-').reverse().join('/');
+        let msg = `*PLANO DE RECUPERAÇÃO: ${p.nome.toUpperCase()}*\n`;
+        msg += `Procedimento: ${p.procedimento || 'Não informado'}\n`;
+        msg += `Data da Cirurgia: ${d}\n`;
+        msg += `------------------------------------------\n\n`;
+
         marcosModulares.forEach(m => {
             const dt = new Date(dataBase);
             dt.setDate(dataBase.getDate() + m.dias);
-            msg += `✅ *${dt.toLocaleDateString('pt-BR')}* - ${m.titulo}\n`;
+            msg += `✅ *${dt.toLocaleDateString('pt-BR')}*\n*${m.titulo}*\n${m.desc}\n\n`;
         });
-        navigator.clipboard.writeText(msg).then(() => alert("Cronograma copiado! Basta colar no WhatsApp."));
-    };
-};
 
-window.toggleCheck = async (id, item, status) => {
-    const p = pacientes.find(x => x.id === id);
-    const novosChecks = { ...(p.checks || {}) };
-    novosChecks[item] = status;
-    await updateDoc(doc(db, "pacientes", id), { checks: novosChecks });
+        navigator.clipboard.writeText(msg).then(() => alert("Copiado com sucesso!"));
+    };
 };
 
 window.prepararEdicao = (id) => {
@@ -194,7 +169,7 @@ window.prepararEdicao = (id) => {
 };
 
 window.excluirPaciente = async (id) => {
-    if(confirm("Deseja realmente excluir este paciente?")) await deleteDoc(doc(db, "pacientes", id));
+    if(confirm("Remover paciente?")) await deleteDoc(doc(db, "pacientes", id));
 };
 
 document.getElementById('buscaPaciente').onkeyup = () => {
