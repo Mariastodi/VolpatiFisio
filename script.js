@@ -1,199 +1,177 @@
-let pacientes = JSON.parse(localStorage.getItem('fisio_pacientes')) || [];
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
+const firebaseConfig = {
+  apiKey: "AIzaSyC_k47MOMZWXLtZPL4p-kBNtJ_PtwR09Lg",
+  authDomain: "volpatifisio.firebaseapp.com",
+  projectId: "volpatifisio",
+  storageBucket: "volpatifisio.firebasestorage.app",
+  messagingSenderId: "1070135048104",
+  appId: "1:1070135048104:web:ec930b7b664d8c23180f9d"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+
+let pacientes = [];
 const marcosModulares = [
     { dias: 0, titulo: "Cirurgia", desc: "Checklist de apresentação" },
     { dias: 1, titulo: "Troca de Curativo", desc: "Instruções de drenagem" },
-    { dias: 10, titulo: "10º Dia: Mobilidade", desc: "Sentar e levantar, elevação pélvica" },
-    { dias: 15, titulo: "15º Dia: Pontos", desc: "Retirada de pontos e marcha" },
+    { dias: 10, titulo: "10º Dia: Mobilidade", desc: "Sentar e levantar" },
+    { dias: 15, titulo: "15º Dia: Pontos", desc: "Retirada de pontos" },
     { dias: 20, titulo: "20º Dia: Fortalecimento", desc: "Agachamento e Kabat" },
     { dias: 30, titulo: "30º Dia: Carga", desc: "Evolução de carga avançada" }
 ];
 
-document.addEventListener('DOMContentLoaded', renderizarLista);
+document.getElementById('btnLogin').onclick = () => {
+    const email = document.getElementById('loginEmail').value;
+    const senha = document.getElementById('loginSenha').value;
+    signInWithEmailAndPassword(auth, email, senha).catch(e => alert("Acesso negado: " + e.message));
+};
 
-function salvarPaciente() {
-    const nomeInput = document.getElementById('pacienteNome');
-    const procInput = document.getElementById('pacienteProcedimento');
-    const dataInput = document.getElementById('dataCirurgia');
-    const editIndexInput = document.getElementById('editIndex');
+document.getElementById('btnLogout').onclick = () => signOut(auth);
 
-    if (!nomeInput.value || !dataInput.value) {
-        alert("Por favor, preencha o nome e a data da cirurgia.");
-        return;
-    }
-
-    let nomeFormatado = nomeInput.value.toLowerCase().split(' ')
-        .map(palavra => palavra.charAt(0).toUpperCase() + palavra.slice(1))
-        .join(' ');
-
-    let procFormatado = procInput.value.toLowerCase().split(' ')
-        .map(palavra => palavra.charAt(0).toUpperCase() + palavra.slice(1))
-        .join(' ');
-
-    const novoPaciente = { 
-        nome: nomeFormatado, 
-        procedimento: procFormatado || "Procedimento Não Informado",
-        data: dataInput.value 
-    };
-
-    const editIndex = parseInt(editIndexInput.value);
-
-    if (editIndex > -1) {
-        pacientes[editIndex] = novoPaciente;
-        editIndexInput.value = "-1";
-        document.getElementById('formTitle').innerText = "Novo Cadastro";
+onAuthStateChanged(auth, (user) => {
+    if (user) {
+        document.getElementById('loginSection').classList.add('hidden');
+        document.getElementById('appContent').classList.remove('hidden');
+        ouvirDados(); // Sincronização em tempo real
     } else {
-        pacientes.push(novoPaciente);
+        document.getElementById('loginSection').classList.remove('hidden');
+        document.getElementById('appContent').classList.add('hidden');
     }
+});
 
-    localStorage.setItem('fisio_pacientes', JSON.stringify(pacientes));
-    
-    nomeInput.value = '';
-    procInput.value = '';
-    dataInput.value = '';
-    document.getElementById('btnSalvar').innerText = "Salvar Paciente";
-
-    renderizarLista();
-}
-
-function renderizarLista() {
-    const lista = document.getElementById('listaPacientes');
-    if (!lista) return;
-    lista.innerHTML = '';
-
-    const hoje = new Date();
-    hoje.setHours(0, 0, 0, 0);
-
-    pacientes.forEach((p, index) => {
-        const dataCirurgia = new Date(p.data + 'T00:00:00');
-        const dataExibicao = p.data.split('-').reverse().join('/');
-        
-        const diffTempo = hoje - dataCirurgia;
-        const diffDias = Math.floor(diffTempo / (1000 * 60 * 60 * 24));
-
-        const badge60 = diffDias >= 60 ? 
-            `<span class="ml-2 bg-orange-100 text-orange-700 text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse border border-orange-200">⚠️ 60 DIAS</span>` : '';
-
-        lista.innerHTML += `
-            <div class="item-paciente p-3 bg-slate-50 rounded-xl border border-slate-200 group transition-all hover:border-blue-300 mb-2">
-                <div class="flex justify-between items-start">
-                    <div class="cursor-pointer flex-1" onclick="visualizarCronograma(${index})">
-                        <div class="flex items-center">
-                            <p class="font-bold text-slate-700 group-hover:text-blue-600">${p.nome}</p>
-                            ${badge60}
-                        </div>
-                        <p class="text-[11px] text-blue-500 font-medium leading-tight">${p.procedimento}</p>
-                        <p class="text-[10px] text-slate-400 mt-1">Cirurgia: ${dataExibicao} (${diffDias} dias atrás)</p>
-                    </div>
-                    <div class="flex gap-2 ml-2">
-                        <button onclick="prepararEdicao(${index})" class="text-blue-500 hover:text-blue-700" title="Editar">✎</button>
-                        <button onclick="excluirPaciente(${index})" class="text-red-400 hover:text-red-600" title="Excluir">✕</button>
-                    </div>
-                </div>
-            </div>
-        `;
+// --- BANCO DE DADOS EM TEMPO REAL ---
+function ouvirDados() {
+    const q = query(collection(db, "pacientes"), orderBy("nome"));
+    onSnapshot(q, (snapshot) => {
+        pacientes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        renderizarLista();
     });
 }
 
-function visualizarCronograma(index) {
-    const p = pacientes[index];
+// --- SALVAR (MAIÚSCULAS + ENTER) ---
+async function salvarPaciente() {
+    const nome = document.getElementById('pacienteNome').value;
+    const proc = document.getElementById('pacienteProcedimento').value;
+    const data = document.getElementById('dataCirurgia').value;
+    const editId = document.getElementById('editId').value;
+
+    if (!nome || !data) return alert("Preencha Nome e Data!");
+
+    const formatar = (str) => str.toLowerCase().split(' ').map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ');
+
+    const dados = {
+        nome: formatar(nome),
+        procedimento: formatar(proc),
+        data: data
+    };
+
+    if (editId) {
+        await updateDoc(doc(db, "pacientes", editId), dados);
+        document.getElementById('editId').value = "";
+        document.getElementById('formTitle').innerText = "Novo Cadastro";
+    } else {
+        await addDoc(collection(db, "pacientes"), dados);
+    }
+
+    document.getElementById('pacienteNome').value = "";
+    document.getElementById('pacienteProcedimento').value = "";
+    document.getElementById('dataCirurgia').value = "";
+}
+
+document.getElementById('btnSalvar').onclick = salvarPaciente;
+
+// Atalho Enter
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && document.activeElement.tagName === 'INPUT') salvarPaciente();
+});
+
+// --- RENDERIZAR E CRONOGRAMA ---
+function renderizarLista() {
+    const lista = document.getElementById('listaPacientes');
+    lista.innerHTML = '';
+    const hoje = new Date();
+    hoje.setHours(0,0,0,0);
+
+    pacientes.forEach((p) => {
+        const dataC = new Date(p.data + 'T00:00:00');
+        const diff = Math.floor((hoje - dataC) / (1000 * 60 * 60 * 24));
+        const badge = diff >= 60 ? `<span class="ml-2 bg-orange-100 text-orange-700 text-[10px] px-2 py-0.5 rounded-full animate-pulse">⚠️ 60 DIAS</span>` : '';
+
+        const div = document.createElement('div');
+        div.className = "p-3 bg-slate-50 rounded-xl border border-slate-200 mb-2 cursor-pointer hover:border-blue-300";
+        div.innerHTML = `
+            <div class="flex justify-between items-start">
+                <div onclick="visualizarCronograma('${p.id}')">
+                    <p class="font-bold text-slate-700">${p.nome} ${badge}</p>
+                    <p class="text-[11px] text-blue-500">${p.procedimento}</p>
+                    <p class="text-[10px] text-slate-400">Há ${diff} dias</p>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="prepararEdicao('${p.id}')">✎</button>
+                    <button onclick="excluirPaciente('${p.id}')">✕</button>
+                </div>
+            </div>
+        `;
+        lista.appendChild(div);
+    });
+}
+
+// Funções globais para os botões da lista
+window.visualizarCronograma = (id) => {
+    const p = pacientes.find(x => x.id === id);
     document.getElementById('placeholder').classList.add('hidden');
     document.getElementById('cronogramaContainer').classList.remove('hidden');
-    
-    document.getElementById('nomeDisplay').innerHTML = `
-        <span class="text-blue-600 block text-xs uppercase tracking-widest font-bold mb-1">${p.procedimento}</span>
-        <h2 class="text-2xl font-bold text-blue-900">${p.nome}</h2>
-    `;
+    document.getElementById('nomeDisplay').innerHTML = `<span class="text-blue-500 text-xs font-bold uppercase">${p.procedimento}</span><h2 class="text-xl font-bold">${p.nome}</h2>`;
     
     const timeline = document.getElementById('timeline');
     timeline.innerHTML = '';
-
     const dataBase = new Date(p.data + 'T00:00:00');
 
-    marcosModulares.forEach(marco => {
-        const dataMarco = new Date(dataBase);
-        dataMarco.setDate(dataBase.getDate() + marco.dias);
-        
-        const dataISO = dataMarco.toISOString().replace(/-|:|\.\d\d\d/g, "");
-        const gLink = `https://www.google.com/calendar/render?action=TEMPLATE&text=Fisio:+${p.nome}+(${marco.titulo})&dates=${dataISO}/${dataISO}&details=${marco.desc}&sf=true&output=xml`;
-
+    marcosModulares.forEach(m => {
+        const dt = new Date(dataBase);
+        dt.setDate(dataBase.getDate() + m.dias);
         timeline.innerHTML += `
-            <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex justify-between items-center transition-all hover:shadow-md">
-                <div>
-                    <span class="text-xs font-bold text-blue-500 uppercase">${dataMarco.toLocaleDateString('pt-BR')}</span>
-                    <h3 class="font-bold text-slate-700">${marco.titulo}</h3>
-                    <p class="text-sm text-slate-500">${marco.desc}</p>
-                </div>
-                <a href="${gLink}" target="_blank" class="bg-slate-100 hover:bg-blue-100 p-2 rounded-full transition-colors" title="Google Agenda">📅</a>
-            </div>
-        `;
+            <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+                <span class="text-xs font-bold text-blue-500">${dt.toLocaleDateString('pt-BR')}</span>
+                <h3 class="font-bold text-slate-700">${m.titulo}</h3>
+                <p class="text-xs text-slate-500">${m.desc}</p>
+            </div>`;
     });
+    document.getElementById('btnZap').onclick = () => exportarZap(p);
+};
 
-    document.getElementById('cronogramaContainer').dataset.currentIndex = index;
-}
-
-function filtrarPacientes() {
-    const termo = document.getElementById('buscaPaciente').value.toLowerCase();
-    const itens = document.getElementsByClassName('item-paciente');
-
-    for (let i = 0; i < itens.length; i++) {
-        let texto = itens[i].innerText.toLowerCase();
-        itens[i].style.display = texto.includes(termo) ? "" : "none";
-    }
-}
-
-function exportarWhatsApp() {
-    const index = document.getElementById('cronogramaContainer').dataset.currentIndex;
-    if (index === undefined) return;
-
-    const p = pacientes[index];
-    const dataBase = new Date(p.data + 'T00:00:00');
-    
-    let msg = `*PLANO DE RECUPERAÇÃO: ${p.nome.toUpperCase()}*\n`;
-    msg += `Procedimento: ${p.procedimento}\n`;
-    msg += `Data da Cirurgia: ${dataBase.toLocaleDateString('pt-BR')}\n`;
-    msg += `------------------------------------------\n\n`;
-
-    marcosModulares.forEach(marco => {
-        const dataMarco = new Date(dataBase);
-        dataMarco.setDate(dataBase.getDate() + marco.dias);
-        msg += `✅ *${dataMarco.toLocaleDateString('pt-BR')}*\n*${marco.titulo}*\n${marco.desc}\n\n`;
-    });
-
-    navigator.clipboard.writeText(msg).then(() => {
-        alert("Copiado para o WhatsApp!");
-    });
-}
-
-function prepararEdicao(index) {
-    const p = pacientes[index];
+window.prepararEdicao = (id) => {
+    const p = pacientes.find(x => x.id === id);
     document.getElementById('pacienteNome').value = p.nome;
-    document.getElementById('pacienteProcedimento').value = p.procedimento || "";
+    document.getElementById('pacienteProcedimento').value = p.procedimento;
     document.getElementById('dataCirurgia').value = p.data;
-    document.getElementById('editIndex').value = index;
+    document.getElementById('editId').value = p.id;
     document.getElementById('formTitle').innerText = "Editando Paciente";
-    document.getElementById('btnSalvar').innerText = "Atualizar Cadastro";
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+
+window.excluirPaciente = async (id) => {
+    if(confirm("Excluir paciente?")) await deleteDoc(doc(db, "pacientes", id));
+};
+
+function exportarZap(p) {
+    let msg = `*PLANO: ${p.nome.toUpperCase()}*\nProc: ${p.procedimento}\n\n`;
+    const dataBase = new Date(p.data + 'T00:00:00');
+    marcosModulares.forEach(m => {
+        const dt = new Date(dataBase);
+        dt.setDate(dataBase.getDate() + m.dias);
+        msg += `✅ *${dt.toLocaleDateString('pt-BR')}* - ${m.titulo}\n`;
+    });
+    navigator.clipboard.writeText(msg).then(() => alert("Copiado para o WhatsApp!"));
 }
 
-function excluirPaciente(index) {
-    if (confirm("Deseja realmente excluir este paciente?")) {
-        pacientes.splice(index, 1);
-        localStorage.setItem('fisio_pacientes', JSON.stringify(pacientes));
-        renderizarLista();
-        document.getElementById('cronogramaContainer').classList.add('hidden');
-        document.getElementById('placeholder').classList.remove('hidden');
-    }
-}
-
-document.addEventListener('keydown', function(event) {
-    if (event.key === 'Enter') {
-        const focadoNoNome = document.activeElement.id === 'pacienteNome';
-        const focadoNoProc = document.activeElement.id === 'pacienteProcedimento';
-        const focadoNoData = document.activeElement.id === 'dataCirurgia';
-
-        if (focadoNoNome || focadoNoProc || focadoNoData) {
-            salvarPaciente();
-        }
-    }
-});
+window.filtrarPacientes = () => {
+    const termo = document.getElementById('buscaPaciente').value.toLowerCase();
+    const cards = document.querySelectorAll('#listaPacientes > div');
+    cards.forEach(c => c.style.display = c.innerText.toLowerCase().includes(termo) ? '' : 'none');
+};
+document.getElementById('buscaPaciente').onkeyup = window.filtrarPacientes;
