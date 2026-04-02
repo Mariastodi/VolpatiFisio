@@ -46,6 +46,14 @@ onAuthStateChanged(auth, (user) => {
     }
 });
 
+function calcularDiasPos(dataString) {
+    const hoje = new Date();
+    hoje.setHours(0,0,0,0);
+    const dataCirurgia = new Date(dataString.replace(/-/g, '\/'));
+    const diffTime = hoje - dataCirurgia;
+    return Math.floor(diffTime / (1000 * 60 * 60 * 24));
+}
+
 function ouvirDados() {
     onSnapshot(query(collection(db, "pacientes"), orderBy("nome")), (snapshot) => {
         pacientes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -80,7 +88,7 @@ async function salvarPaciente() {
 document.getElementById('btnSalvar').onclick = salvarPaciente;
 
 ['pacienteNome', 'pacienteProcedimento', 'dataCirurgia'].forEach(id => {
-    document.getElementById(id).addEventListener('keypress', (e) => {
+    document.getElementById(id).addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
             salvarPaciente();
@@ -88,24 +96,50 @@ document.getElementById('btnSalvar').onclick = salvarPaciente;
     });
 });
 
+function renderizarLista() {
+    const lista = document.getElementById('listaPacientes');
+    lista.innerHTML = '';
+    
+    pacientes.forEach((p) => {
+        const diasPos = calcularDiasPos(p.data);
+        const dataFormatada = p.data.split('-').reverse().join('/');
+        
+        let tagAlerta = diasPos >= 60 ? 
+            `<span class="ml-2 bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full text-[10px] font-bold border border-orange-200">⚠️ 60 DIAS</span>` : "";
+
+        const div = document.createElement('div');
+        div.className = "p-4 bg-white border border-slate-100 rounded-2xl hover:border-blue-400 cursor-pointer shadow-sm transition-all mb-3";
+        div.innerHTML = `
+            <div class="flex justify-between items-start">
+                <div onclick="visualizarCronograma('${p.id}')" class="flex-grow">
+                    <div class="flex items-center">
+                        <p class="font-bold text-slate-800 text-base">${p.nome}</p>
+                        ${tagAlerta}
+                    </div>
+                    <p class="text-sm text-blue-500 font-medium">${p.procedimento || 'Pe Plano'}</p>
+                    <p class="text-[11px] text-slate-400 mt-1">Cirurgia: ${dataFormatada} (${diasPos} dias atrás)</p>
+                </div>
+                <div class="flex gap-3 text-slate-400">
+                    <button onclick="prepararEdicao('${p.id}')" class="hover:text-blue-500 text-lg">✎</button>
+                    <button onclick="excluirPaciente('${p.id}')" class="hover:text-red-500 text-lg">✕</button>
+                </div>
+            </div>`;
+        lista.appendChild(div);
+    });
+}
+
 window.visualizarCronograma = (id) => {
     pacienteAtualId = id;
     const p = pacientes.find(x => x.id === id);
     document.getElementById('placeholder').classList.add('hidden');
     document.getElementById('cronogramaContainer').classList.remove('hidden');
     
-    const hoje = new Date();
-    hoje.setHours(0,0,0,0);
-    const dataCirurgia = new Date(p.data.replace(/-/g, '\/'));
-    const diffTime = hoje - dataCirurgia;
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    
+    const diffDays = calcularDiasPos(p.data);
     const labelDias = diffDays === 0 ? "Dia da Cirurgia" : (diffDays > 0 ? `${diffDays} dias de pós` : `Faltam ${Math.abs(diffDays)} dias`);
-    
-    let avisoAlta = diffDays >= 60 ? `<span class="ml-2 bg-amber-100 text-amber-700 px-2 py-0.5 rounded text-[10px] font-bold animate-pulse">⚠️ MARCO 60 DIAS</span>` : "";
+    const dataCirurgia = new Date(p.data.replace(/-/g, '\/'));
 
     document.getElementById('nomeDisplay').innerHTML = `
-        <span class="text-blue-500 text-[10px] font-bold uppercase tracking-widest">${p.procedimento || 'FISIOTERAPIA'} • ${labelDias} ${avisoAlta}</span>
+        <span class="text-blue-500 text-[10px] font-bold uppercase tracking-widest">${p.procedimento || 'FISIOTERAPIA'} • ${labelDias}</span>
         <h2 class="text-2xl font-black text-slate-800">${p.nome}</h2>
     `;
     
@@ -146,25 +180,6 @@ window.visualizarCronograma = (id) => {
         navigator.clipboard.writeText(msg).then(() => alert("Copiado com sucesso!"));
     };
 };
-
-function renderizarLista() {
-    const lista = document.getElementById('listaPacientes');
-    lista.innerHTML = '';
-    pacientes.forEach((p) => {
-        const div = document.createElement('div');
-        div.className = "p-3 bg-white border border-slate-100 rounded-xl hover:border-blue-400 cursor-pointer shadow-sm flex justify-between items-center";
-        div.innerHTML = `
-            <div onclick="visualizarCronograma('${p.id}')" class="flex-grow">
-                <p class="font-bold text-slate-700 text-sm">${p.nome}</p>
-                <p class="text-[11px] text-slate-400 font-medium uppercase">${p.procedimento || '---'}</p>
-            </div>
-            <div class="flex gap-2 text-slate-300">
-                <button onclick="prepararEdicao('${p.id}')" class="hover:text-blue-500">✎</button>
-                <button onclick="excluirPaciente('${p.id}')" class="hover:text-red-500">✕</button>
-            </div>`;
-        lista.appendChild(div);
-    });
-}
 
 async function atualizarChecklistVisual() {
     const p = pacientes.find(x => x.id === pacienteAtualId);
@@ -236,7 +251,9 @@ function resetarVisualizacao() {
 }
 
 function limparForm() {
-    ['pacienteNome', 'pacienteProcedimento', 'dataCirurgia', 'editId'].forEach(id => document.getElementById(id).value = "");
+    ['pacienteNome', 'pacienteProcedimento', 'dataCirurgia', 'editId'].forEach(id => {
+        document.getElementById(id).value = "";
+    });
     document.getElementById('formTitle').innerText = "Novo Cadastro";
 }
 
@@ -247,6 +264,9 @@ document.getElementById('buscaPaciente').onkeyup = () => {
     });
 };
 
-document.getElementById('novaTarefaInput').onkeypress = (e) => {
-    if (e.key === 'Enter') document.getElementById('addTarefaBtn').click();
+document.getElementById('novaTarefaInput').onkeydown = (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        document.getElementById('addTarefaBtn').click();
+    }
 };
