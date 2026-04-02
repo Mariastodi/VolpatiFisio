@@ -38,7 +38,7 @@
                 <h1 class="text-3xl font-bold text-blue-900 tracking-tight">Volpati Fisio <span class="font-light text-blue-500">Pro</span></h1>
                 <p class="text-blue-600 font-medium">Gestão Sincronizada de Pacientes</p>
             </div>
-            <button id="btnLogout" class="text-xs text-red-500 font-bold border border-red-200 px-3 py-1 rounded-lg">Sair</button>
+            <button id="btnLogout" class="text-xs text-red-500 font-bold border border-red-200 px-3 py-1 rounded-lg hover:bg-red-50 transition-colors">Sair</button>
         </header>
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -56,7 +56,7 @@
 
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-blue-100">
                     <h2 class="text-lg font-semibold mb-4 text-blue-800">Meus Pacientes</h2>
-                    <input type="text" id="buscaPaciente" placeholder="Buscar..." class="w-full mb-4 p-2 text-sm border rounded-lg outline-none">
+                    <input type="text" id="buscaPaciente" placeholder="Buscar..." class="w-full mb-4 p-2 text-sm border rounded-lg outline-none focus:ring-1 focus:ring-blue-300">
                     <div id="listaPacientes" class="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar"></div>
                 </div>
             </aside>
@@ -64,28 +64,34 @@
             <section class="lg:col-span-8">
                 <div id="placeholder" class="bg-white border-2 border-dashed border-blue-100 rounded-3xl p-20 text-center">
                     <div class="text-5xl mb-4">📋</div>
-                    <h3 class="text-slate-400 font-medium">Selecione um paciente</h3>
+                    <h3 class="text-slate-400 font-medium">Selecione um paciente para ver os detalhes</h3>
                 </div>
 
-                <div id="cronogramaContainer" class="hidden">
-                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-blue-100 mb-6">
+                <div id="cronogramaContainer" class="hidden space-y-6">
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-blue-100">
                         <div class="flex justify-between items-start mb-6">
-                            <div id="nomeDisplay"></div>
-                            <button id="btnZap" class="bg-green-500 hover:bg-green-600 text-white px-5 py-2 rounded-xl font-bold text-sm shadow-md transition-all active:scale-95">Copiar WhatsApp</button>
+                            <div id="nomeDisplay">
+                                </div>
+                            <button id="btnZap" class="bg-green-500 hover:bg-green-600 text-white px-5 py-2 rounded-xl font-bold text-sm shadow-md transition-all active:scale-95">
+                                Copiar WhatsApp Completo
+                            </button>
                         </div>
                         
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-50">
                             <div>
                                 <label class="block text-[11px] font-bold text-blue-500 uppercase tracking-widest mb-3">Checklist de Tarefas:</label>
-                                <div id="checklistContainer" class="space-y-2 max-h-40 overflow-y-auto pr-2 custom-scrollbar min-h-[100px] bg-blue-50 p-3 rounded-xl border border-blue-100"></div>
+                                <div id="checklistContainer" class="space-y-2 max-h-40 overflow-y-auto pr-2 custom-scrollbar min-h-[100px] bg-blue-50 p-3 rounded-xl border border-blue-100">
+                                    </div>
                                 <div class="mt-2 flex gap-2">
                                     <input type="text" id="novaTarefaInput" placeholder="Nova tarefa..." class="flex-grow p-2 text-sm border rounded-lg outline-none focus:ring-1 focus:ring-blue-400">
-                                    <button id="addTarefaBtn" class="bg-blue-600 text-white px-3 py-1 rounded-lg font-bold text-sm hover:bg-blue-700">+</button>
+                                    <button id="addTarefaBtn" class="bg-blue-600 text-white px-3 py-1 rounded-lg font-bold text-sm hover:bg-blue-700 transition-colors">+</button>
                                 </div>
                             </div>
+
                             <div>
-                                <label class="block text-[11px] font-bold text-blue-500 uppercase tracking-widest mb-3">Notas:</label>
-                                <textarea id="notasRapidas" class="w-full p-3 text-sm bg-slate-50 border border-slate-100 rounded-xl outline-none h-32 focus:bg-white transition-all" placeholder="Anote adiamentos ou observações aqui..."></textarea>
+                                <label class="block text-[11px] font-bold text-blue-500 uppercase tracking-widest mb-3">Lembretes & Notas:</label>
+                                <textarea id="notasRapidas" class="w-full p-3 text-sm bg-slate-50 border border-slate-100 rounded-xl outline-none h-32 focus:bg-white focus:ring-1 focus:ring-blue-200 transition-all resize-none" placeholder="Anote adiamentos ou observações aqui..."></textarea>
+                                <p class="text-[10px] text-slate-400 mt-1 italic">Dica: O que você escrever aqui é salvo automaticamente ao clicar fora.</p>
                             </div>
                         </div>
                     </div>
